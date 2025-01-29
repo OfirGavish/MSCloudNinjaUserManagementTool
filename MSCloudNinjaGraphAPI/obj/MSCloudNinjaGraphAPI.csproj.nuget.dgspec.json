@@ -1,0 +1,111 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj",
+        "projectName": "User OffBoarding Tool by MSCloudNinja",
+        "projectPath": "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj",
+        "packagesPath": "C:\\Users\\ofirga\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\ofirga\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0-windows"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0-windows7.0": {
+            "targetAlias": "net8.0-windows",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.100"
+      },
+      "frameworks": {
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
+          "dependencies": {
+            "Azure.Identity": {
+              "target": "Package",
+              "version": "[1.10.4, )"
+            },
+            "Microsoft.Graph": {
+              "target": "Package",
+              "version": "[5.36.0, )"
+            },
+            "Microsoft.Graph.Beta": {
+              "target": "Package",
+              "version": "[5.94.0-preview, )"
+            },
+            "Microsoft.Graph.Core": {
+              "target": "Package",
+              "version": "[3.2.2, )"
+            },
+            "Microsoft.Kiota.Abstractions": {
+              "target": "Package",
+              "version": "[1.16.3, )"
+            },
+            "Microsoft.Kiota.Authentication.Azure": {
+              "target": "Package",
+              "version": "[1.16.3, )"
+            },
+            "Microsoft.Kiota.Http.HttpClientLibrary": {
+              "target": "Package",
+              "version": "[1.16.3, )"
+            },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[13.0.3, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WindowsForms": {
+              "privateAssets": "none"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.101/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
