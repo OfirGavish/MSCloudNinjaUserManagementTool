@@ -1,6 +1,6 @@
-# MS Cloud Ninja User Offboarding Tool
+# MS Cloud Ninja User Management Tool
 
-A powerful and user-friendly Windows desktop application designed to streamline the process of offboarding users from Microsoft 365 environments. Built with .NET 8.0 and Microsoft Graph API, this tool provides a comprehensive solution for IT administrators to manage user offboarding and onboarding tasks efficiently.
+A powerful and user-friendly Windows desktop application designed to streamline the process of offboarding and onboarding users on Microsoft 365 environments. Built with .NET 8.0 and Microsoft Graph API, this tool provides a comprehensive solution for IT administrators to manage user offboarding and onboarding tasks efficiently.
 
 ## Features
 
