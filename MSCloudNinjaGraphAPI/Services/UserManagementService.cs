@@ -15,6 +15,7 @@ using System.Net.Http.Headers;
 using Azure.Identity;
 using Microsoft.Identity.Client;
 using Azure.Core;
+using MSCloudNinjaGraphAPI.Models;
 
 namespace MSCloudNinjaGraphAPI.Services
 {
@@ -29,6 +30,7 @@ namespace MSCloudNinjaGraphAPI.Services
         public string ManagerId { get; set; }
         public List<string> GroupIds { get; set; }
         public List<string> LicenseIds { get; set; }
+        public string UsageLocation { get; set; } = "US";  // Default to US if not specified
     }
 
     public interface IUserManagementService
@@ -36,7 +38,7 @@ namespace MSCloudNinjaGraphAPI.Services
         Task<List<User>> GetAllUsersAsync();
         Task<List<Group>> GetAllGroupsAsync();
         Task<List<License>> GetAvailableLicensesAsync();
-        Task CreateUserAsync(CreateUserRequest request);
+        Task<(User User, string Password, List<string> Errors)> CreateUserAsync(CreateUserRequest request);
         Task DisableUserAsync(string userId);
         Task RemoveFromGlobalAddressListAsync(string userId);
         Task RemoveFromAllGroupsAsync(string userId);
@@ -87,50 +89,33 @@ namespace MSCloudNinjaGraphAPI.Services
                     "jobTitle"
                 };
 
+                await LogOperationAsync("Starting to fetch users...");
                 var response = await _graphClient.Users.GetAsync(requestConfiguration =>
                 {
                     requestConfiguration.QueryParameters.Select = queryOptions;
                     requestConfiguration.QueryParameters.Top = 999;
                     requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
-                    requestConfiguration.QueryParameters.Orderby = new[] { "userPrincipalName" };
+                    requestConfiguration.QueryParameters.Count = true;
+                    requestConfiguration.QueryParameters.Orderby = new[] { "displayName" };
                 });
 
                 while (response?.Value != null)
                 {
                     pageCount++;
-                    var newUsers = response.Value.Where(u => !string.IsNullOrEmpty(u.UserPrincipalName)).ToList();
-                    users.AddRange(newUsers);
-                    await LogOperationAsync($"Page {pageCount}: Loaded {newUsers.Count} users (Total: {users.Count})");
+                    users.AddRange(response.Value);
+                    await LogOperationAsync($"Page {pageCount}: Loaded {response.Value.Count} users (Total: {users.Count})");
 
-                    if (string.IsNullOrEmpty(response.OdataNextLink))
+                    // Get next page if it exists
+                    if (response.OdataNextLink == null)
                         break;
 
-                    try
-                    {
-                        string skipToken = response.OdataNextLink[(response.OdataNextLink.IndexOf("$skiptoken=") + "$skiptoken=".Length)..];
-                        var requestInformation = _graphClient.Users.ToGetRequestInformation(requestConfiguration =>
-                        {
-                            requestConfiguration.QueryParameters.Select = queryOptions;
-                            requestConfiguration.QueryParameters.Top = 999;
-                            requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
-                            requestConfiguration.QueryParameters.Orderby = new[] { "userPrincipalName" };
-                        });
-
-                        requestInformation.UrlTemplate = requestInformation.UrlTemplate[..^1] + ",%24skiptoken" + requestInformation.UrlTemplate[^1];
-                        requestInformation.QueryParameters.Add("%24skiptoken", skipToken);
-
-                        response = await _graphClient.RequestAdapter.SendAsync(requestInformation,
-                            UserCollectionResponse.CreateFromDiscriminatorValue);
-                    }
-                    catch (Exception ex)
-                    {
-                        await LogExceptionAsync(ex, true);
-                        break;
-                    }
+                    response = await _graphClient.Users
+                        .WithUrl(response.OdataNextLink)
+                        .GetAsync();
                 }
 
                 await LogOperationAsync($"Finished loading {users.Count} users from {pageCount} pages.");
-                return users.OrderBy(u => u.DisplayName).ToList();
+                return users;
             }
             catch (Exception ex)
             {
@@ -154,10 +139,11 @@ namespace MSCloudNinjaGraphAPI.Services
                     "onPremisesSyncEnabled",
                     "groupTypes",
                     "mailEnabled",
-                    "securityEnabled"
+                    "securityEnabled",
+                    "membershipRule"
                 };
 
-                await LogOperationAsync("Starting to fetch cloud-only groups...");
+                await LogOperationAsync("Starting to fetch assignable groups...");
                 var response = await _graphClient.Groups.GetAsync(requestConfiguration =>
                 {
                     requestConfiguration.QueryParameters.Select = queryOptions;
@@ -165,78 +151,55 @@ namespace MSCloudNinjaGraphAPI.Services
                     requestConfiguration.QueryParameters.Top = 999;
                     requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
                     requestConfiguration.QueryParameters.Count = true;
+                    requestConfiguration.QueryParameters.Orderby = new[] { "displayName" };
                 });
 
-                while (response?.Value != null)
+                if (response?.Value != null)
                 {
-                    pageCount++;
-                    var newGroups = response.Value
-                        .Where(g => g.OnPremisesSyncEnabled == null || g.OnPremisesSyncEnabled == false)
+                    // Filter out dynamic groups (those with membershipRule)
+                    var validGroups = response.Value
+                        .Where(g => string.IsNullOrEmpty(g.MembershipRule))
                         .ToList();
-                    
-                    groups.AddRange(newGroups);
-                    await LogOperationAsync($"Page {pageCount}: Loaded {newGroups.Count} cloud-only groups (Total: {groups.Count})");
 
-                    if (response.OdataNextLink == null)
-                        break;
+                    await LogOperationAsync($"Found {validGroups.Count} groups on first page");
+                    groups.AddRange(validGroups);
+                    pageCount++;
 
-                    response = await _graphClient.Groups
-                        .WithUrl(response.OdataNextLink)
-                        .GetAsync();
+                    // Get additional pages if they exist
+                    var nextPageRequest = response.OdataNextLink;
+                    while (!string.IsNullOrEmpty(nextPageRequest) && pageCount < 10)
+                    {
+                        var nextPageResponse = await _graphClient.Groups.WithUrl(nextPageRequest).GetAsync();
+                        if (nextPageResponse?.Value != null)
+                        {
+                            var nextPageGroups = nextPageResponse.Value
+                                .Where(g => string.IsNullOrEmpty(g.MembershipRule))
+                                .ToList();
+
+                            await LogOperationAsync($"Found {nextPageGroups.Count} groups on page {pageCount + 1}");
+                            groups.AddRange(nextPageGroups);
+                            pageCount++;
+                            nextPageRequest = nextPageResponse.OdataNextLink;
+                        }
+                    }
                 }
 
-                await LogOperationAsync($"Finished loading {groups.Count} cloud-only groups from {pageCount} pages.");
-                
-                // Order groups by type and name for better organization
-                return groups
-                    .OrderBy(g => g.DisplayName)
+                // Log group types breakdown
+                var stats = groups
+                    .GroupBy(g => g.SecurityEnabled == true ? 
+                        (g.MailEnabled == true ? "Mail-Enabled Security" : "Security") :
+                        (g.MailEnabled == true ? "Distribution" : 
+                         (g.GroupTypes != null && g.GroupTypes.Contains("Unified") ? "Microsoft 365" : "Other")))
+                    .Select(g => $"{g.Key}: {g.Count()}")
                     .ToList();
-            }
-            catch (Exception ex)
-            {
-                await LogExceptionAsync(ex, true);
-                throw;
-            }
-        }
 
-        public async Task<List<License>> GetAvailableLicensesAsync()
-        {
-            try
-            {
-                await LogOperationAsync("Fetching available licenses...");
-                var subscribedSkus = await _graphClient.SubscribedSkus.GetAsync(requestConfiguration =>
+                await LogOperationAsync($"Found total of {groups.Count} assignable groups:");
+                foreach (var stat in stats)
                 {
-                    requestConfiguration.QueryParameters.Select = new[] 
-                    { 
-                        "skuId",
-                        "skuPartNumber",
-                        "prepaidUnits",
-                        "consumedUnits",
-                        "servicePlans",
-                        "capabilityStatus"
-                    };
-                });
-
-                var licenses = subscribedSkus?.Value?.Select(s => new License
-                {
-                    Id = s.SkuId.ToString(),
-                    SkuId = s.SkuId.ToString(),
-                    SkuPartNumber = s.SkuPartNumber,
-                    DisplayName = s.CapabilityStatus,
-                    FriendlyName = License.GetFriendlyName(s.SkuPartNumber, s.CapabilityStatus),
-                    TotalLicenses = s.PrepaidUnits?.Enabled ?? 0,
-                    UsedLicenses = s.ConsumedUnits ?? 0
-                }).ToList() ?? new List<License>();
-
-                // Log license availability
-                foreach (var license in licenses.Where(l => l.TotalLicenses > 0))
-                {
-                    await LogOperationAsync(
-                        $"License {license.FriendlyName} ({license.SkuPartNumber}): " +
-                        $"{license.AvailableLicenses} available of {license.TotalLicenses} total");
+                    await LogOperationAsync($"  {stat}");
                 }
 
-                return licenses;
+                return groups;
             }
             catch (Exception ex)
             {
@@ -245,10 +208,79 @@ namespace MSCloudNinjaGraphAPI.Services
             }
         }
 
-        public async Task CreateUserAsync(CreateUserRequest request)
+        public async Task<List<License>> GetAvailableLicensesAsync()
+        {
+            var licenses = new List<License>();
+
+            try
+            {
+                await LogOperationAsync("Starting to fetch licenses...");
+                var response = await _graphClient.SubscribedSkus.GetAsync();
+
+                if (response?.Value != null)
+                {
+                    foreach (var sku in response.Value)
+                    {
+                        var license = new License
+                        {
+                            Id = sku.Id?.ToString(),
+                            SkuId = sku.SkuId?.ToString(),
+                            SkuPartNumber = sku.SkuPartNumber,
+                            DisplayName = sku.CapabilityStatus,
+                            TotalLicenses = sku.PrepaidUnits?.Enabled ?? 0,
+                            UsedLicenses = sku.ConsumedUnits ?? 0,
+                            FriendlyName = License.GetFriendlyName(sku.SkuPartNumber, sku.CapabilityStatus)
+                        };
+
+                        if (license.TotalLicenses > 0)  // Only add if there are total licenses
+                        {
+                            licenses.Add(license);
+                        }
+                    }
+                }
+
+                await LogOperationAsync($"Found {licenses.Count} license types");
+                return licenses.OrderBy(l => l.FriendlyName).ToList();
+            }
+            catch (Exception ex)
+            {
+                await LogExceptionAsync(ex);
+                throw;
+            }
+        }
+
+        private string GenerateRandomPassword()
+        {
+            const string upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            const string lowerCase = "abcdefghijklmnopqrstuvwxyz";
+            const string numeric = "0123456789";
+            const string special = "@#$%^&*";
+            
+            var random = new Random();
+            var password = new StringBuilder();
+
+            // Ensure at least one of each required character type
+            password.Append(upperCase[random.Next(upperCase.Length)]);
+            password.Append(lowerCase[random.Next(lowerCase.Length)]);
+            password.Append(numeric[random.Next(numeric.Length)]);
+            password.Append(special[random.Next(special.Length)]);
+
+            // Fill the rest with random characters
+            var allChars = upperCase + lowerCase + numeric + special;
+            while (password.Length < 12)
+            {
+                password.Append(allChars[random.Next(allChars.Length)]);
+            }
+
+            // Shuffle the password
+            return new string(password.ToString().ToCharArray().OrderBy(x => random.Next()).ToArray());
+        }
+
+        public async Task<(User User, string Password, List<string> Errors)> CreateUserAsync(CreateUserRequest request)
         {
             var errors = new List<string>();
             User createdUser = null;
+            string password = GenerateRandomPassword();
 
             try
             {
@@ -263,91 +295,73 @@ namespace MSCloudNinjaGraphAPI.Services
                     Surname = request.Surname,
                     MailNickname = request.UserPrincipalName.Split('@')[0],
                     AccountEnabled = true,
+                    UsageLocation = request.UsageLocation,  // Set usage location
                     PasswordProfile = new PasswordProfile
                     {
                         ForceChangePasswordNextSignIn = true,
-                        Password = GenerateRandomPassword()
+                        Password = password
                     }
                 };
 
-                await LogOperationAsync("Creating base user account...");
+                if (!string.IsNullOrEmpty(request.AdditionalEmail))
+                {
+                    user.OtherMails = new List<string> { request.AdditionalEmail };
+                    if (request.SetAdditionalEmailAsPrimary)
+                    {
+                        user.Mail = request.AdditionalEmail;
+                    }
+                }
+
                 createdUser = await _graphClient.Users.PostAsync(user);
-                await LogOperationAsync($"Base user account created successfully with ID: {createdUser.Id}");
+                await LogOperationAsync($"User {request.UserPrincipalName} created successfully");
 
                 // Set manager if specified
                 if (!string.IsNullOrEmpty(request.ManagerId))
                 {
                     try
                     {
-                        await LogOperationAsync($"Setting manager (ID: {request.ManagerId}) for user...");
                         await _graphClient.Users[createdUser.Id].Manager.Ref.PutAsync(new ReferenceUpdate
                         {
                             OdataId = $"https://graph.microsoft.com/v1.0/users/{request.ManagerId}"
                         });
-                        await LogOperationAsync("Manager set successfully");
+                        await LogOperationAsync($"Manager set successfully for {request.UserPrincipalName}");
                     }
                     catch (Exception ex)
                     {
-                        await LogExceptionAsync(ex, true);
                         errors.Add($"Failed to set manager: {ex.Message}");
-                    }
-                }
-
-                // Add additional email if specified
-                if (!string.IsNullOrEmpty(request.AdditionalEmail))
-                {
-                    try
-                    {
-                        await LogOperationAsync($"Adding additional email: {request.AdditionalEmail}");
-                        var proxyAddress = $"smtp:{request.AdditionalEmail}";
-                        
-                        if (request.SetAdditionalEmailAsPrimary)
-                        {
-                            await LogOperationAsync("Setting additional email as primary...");
-                            var updateUser = new User
-                            {
-                                Mail = request.AdditionalEmail,
-                                ProxyAddresses = new List<string> { proxyAddress }
-                            };
-                            await _graphClient.Users[createdUser.Id].PatchAsync(updateUser);
-                        }
-                        else
-                        {
-                            await LogOperationAsync("Adding additional email as secondary...");
-                            var updateUser = new User
-                            {
-                                ProxyAddresses = new List<string> { proxyAddress }
-                            };
-                            await _graphClient.Users[createdUser.Id].PatchAsync(updateUser);
-                        }
-                        await LogOperationAsync("Email configuration completed");
-                    }
-                    catch (Exception ex)
-                    {
-                        await LogExceptionAsync(ex, true);
-                        errors.Add($"Failed to set email addresses: {ex.Message}");
+                        await LogExceptionAsync(ex);
                     }
                 }
 
                 // Add to groups
-                if (request.GroupIds?.Any() == true)
+                foreach (var groupId in request.GroupIds ?? new List<string>())
                 {
-                    await LogOperationAsync($"Adding user to {request.GroupIds.Count} groups...");
-                    foreach (var groupId in request.GroupIds)
+                    try
                     {
-                        try
+                        // Check if it's a mail-enabled group
+                        var group = await _graphClient.Groups[groupId].GetAsync();
+                        if (group.MailEnabled == true)
                         {
+                            // Use Exchange endpoint for mail-enabled groups
                             await _graphClient.Groups[groupId].Members.Ref.PostAsync(new ReferenceCreate
                             {
-                                OdataId = $"https://graph.microsoft.com/v1.0/directoryObjects/{createdUser.Id}"
+                                OdataId = $"https://graph.microsoft.com/v1.0/users/{createdUser.Id}"
                             });
-                            await LogOperationAsync($"Added to group {groupId}");
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            await LogExceptionAsync(ex, true);
-                            errors.Add($"Failed to add to group {groupId}: {ex.Message}");
+                            // Use standard endpoint for security groups
+                            await _graphClient.Groups[groupId].Members.Ref.PostAsync(new ReferenceCreate
+                            {
+                                OdataId = $"https://graph.microsoft.com/v1.0/users/{createdUser.Id}"
+                            });
                         }
+                        await LogOperationAsync($"Added user to group {groupId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Failed to add to group {groupId}: {ex.Message}");
+                        await LogExceptionAsync(ex);
                     }
                 }
 
@@ -356,40 +370,55 @@ namespace MSCloudNinjaGraphAPI.Services
                 {
                     try
                     {
-                        await LogOperationAsync($"Assigning {request.LicenseIds.Count} licenses...");
-                        var addLicenses = request.LicenseIds
-                            .Select(id => new AssignedLicense { SkuId = Guid.Parse(id) })
-                            .ToList();
+                        var addLicenses = new List<Microsoft.Graph.Models.AssignedLicense>();
+                        var removeLicenses = new List<Guid?>();
 
-                        await _graphClient.Users[createdUser.Id].AssignLicense.PostAsync(new AssignLicensePostRequestBody
+                        foreach (var licenseId in request.LicenseIds)
                         {
-                            AddLicenses = addLicenses,
-                            RemoveLicenses = new List<Guid?>()
-                        });
-                        await LogOperationAsync("Licenses assigned successfully");
+                            if (Guid.TryParse(licenseId, out Guid skuId))
+                            {
+                                addLicenses.Add(new Microsoft.Graph.Models.AssignedLicense
+                                {
+                                    SkuId = skuId
+                                });
+                            }
+                            else
+                            {
+                                errors.Add($"Invalid license ID format: {licenseId}");
+                            }
+                        }
+
+                        if (addLicenses.Any())
+                        {
+                            var requestBody = new Microsoft.Graph.Users.Item.AssignLicense.AssignLicensePostRequestBody
+                            {
+                                AddLicenses = addLicenses,
+                                RemoveLicenses = removeLicenses
+                            };
+
+                            await _graphClient.Users[createdUser.Id].AssignLicense.PostAsync(requestBody);
+                            await LogOperationAsync($"Licenses assigned successfully to {request.UserPrincipalName}");
+                        }
                     }
                     catch (Exception ex)
                     {
-                        await LogExceptionAsync(ex, true);
                         errors.Add($"Failed to assign licenses: {ex.Message}");
+                        await LogExceptionAsync(ex);
                     }
                 }
 
-                var message = errors.Any()
-                    ? $"User created successfully, but some operations failed:\n\n{string.Join("\n", errors)}"
-                    : "User created successfully with all requested configurations.";
-
-                await LogOperationAsync(message);
-                throw new AggregateException(message, errors.Select(e => new Exception(e)));
+                return (createdUser, password, errors);
             }
             catch (Exception ex)
             {
-                var finalMessage = createdUser != null
-                    ? $"User was created but with errors: {ex.Message}"
-                    : $"Failed to create user: {ex.Message}";
+                if (createdUser != null)
+                {
+                    errors.Add(ex.Message);
+                    return (createdUser, password, errors);
+                }
                 
-                await LogExceptionAsync(ex, true);
-                throw new Exception(finalMessage, ex);
+                await LogExceptionAsync(ex);
+                throw;
             }
         }
 
@@ -738,154 +767,11 @@ namespace MSCloudNinjaGraphAPI.Services
             }
         }
 
-        private string GenerateRandomPassword()
+        // Custom User class to handle showInAddressList property correctly
+        public class CustomUser : User
         {
-            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-            var random = new Random();
-            return new string(Enumerable.Repeat(chars, 16)
-                .Select(s => s[random.Next(s.Length)]).ToArray());
+            [JsonPropertyName("showInAddressList")]
+            public new bool? ShowInAddressList { get; set; }
         }
-    }
-
-    public class License
-    {
-        public string Id { get; set; }
-        public string SkuId { get; set; }
-        public string SkuPartNumber { get; set; }
-        public string DisplayName { get; set; }
-        public string FriendlyName { get; set; }
-        public int TotalLicenses { get; set; }
-        public int UsedLicenses { get; set; }
-        public int AvailableLicenses => TotalLicenses - UsedLicenses;
-        public bool HasAvailableLicenses => AvailableLicenses > 0;
-
-        public string GetDisplayText()
-        {
-            return $"{FriendlyName} ({SkuPartNumber}) - {AvailableLicenses} available of {TotalLicenses} total";
-        }
-
-        private static readonly Dictionary<string, string> SkuToFriendlyName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            // Enterprise Suites
-            { "SPE_E3", "Microsoft 365 E3" },
-            { "SPE_E5", "Microsoft 365 E5" },
-            { "SPE_F1", "Microsoft 365 F3" },
-            { "ENTERPRISEPACK", "Office 365 E3" },
-            { "ENTERPRISEPREMIUM", "Office 365 E5" },
-            
-            // Business Suites
-            { "SPB", "Microsoft 365 Business" },
-            { "O365_BUSINESS_PREMIUM", "Microsoft 365 Business Standard" },
-            { "O365_BUSINESS_ESSENTIALS", "Microsoft 365 Business Basic" },
-            { "O365_BUSINESS", "Microsoft 365 Apps for Business" },
-            
-            // Exchange Online
-            { "EXCHANGESTANDARD", "Exchange Online Plan 1" },
-            { "EXCHANGEENTERPRISE", "Exchange Online Plan 2" },
-            { "EXCHANGEESSENTIALS", "Exchange Online Essentials" },
-            { "EXCHANGE_S_STANDARD", "Exchange Online Plan 1" },
-            { "EXCHANGE_S_ENTERPRISE", "Exchange Online Plan 2" },
-            
-            // SharePoint Online
-            { "SHAREPOINTSTANDARD", "SharePoint Online Plan 1" },
-            { "SHAREPOINTENTERPRISE", "SharePoint Online Plan 2" },
-            { "SHAREPOINT_S_STANDARD", "SharePoint Online Plan 1" },
-            { "SHAREPOINT_S_ENTERPRISE", "SharePoint Online Plan 2" },
-            
-            // Teams
-            { "TEAMS_COMMERCIAL_TRIAL", "Microsoft Teams Commercial Trial" },
-            { "TEAMS_EXPLORATORY", "Microsoft Teams Exploratory" },
-            { "TEAMS_FREE", "Microsoft Teams Free" },
-            { "TEAMS_FREE_TIER1", "Microsoft Teams (Free)" },
-            { "TEAMS_FREE_TIER2", "Microsoft Teams (Free)" },
-            
-            // Power Platform
-            { "POWER_BI_PRO", "Power BI Pro" },
-            { "POWER_BI_STANDARD", "Power BI Free" },
-            { "FLOW_FREE", "Power Automate Free" },
-            { "POWERAPPS_VIRAL", "Power Apps Trial" },
-            
-            // Azure Active Directory
-            { "AAD_PREMIUM", "Azure AD Premium P1" },
-            { "AAD_PREMIUM_P2", "Azure AD Premium P2" },
-            { "AAD_BASIC", "Azure AD Basic" },
-            
-            // Enterprise Mobility + Security
-            { "EMS", "Enterprise Mobility + Security E3" },
-            { "EMSPREMIUM", "Enterprise Mobility + Security E5" },
-            
-            // Dynamics 365
-            { "DYN365_ENTERPRISE_PLAN1", "Dynamics 365 Customer Engagement Plan" },
-            { "DYN365_ENTERPRISE_SALES", "Dynamics 365 Sales Enterprise" },
-            { "DYN365_FINANCIALS_BUSINESS_SKU", "Dynamics 365 Business Central" },
-            
-            // Visual Studio
-            { "VSULTSTD", "Visual Studio Enterprise" },
-            { "VSSPREMIUM", "Visual Studio Premium" },
-            { "VS_PREMIUM", "Visual Studio Premium" },
-            { "VS_PROFESSIONAL", "Visual Studio Professional" },
-
-            // Intune
-            { "INTUNE_A", "Microsoft Intune" },
-            { "INTUNE_A_D", "Microsoft Intune Device" },
-            { "INTUNE_A_VL", "Microsoft Intune Volume License" },
-            { "INTUNE_O365", "Microsoft Intune for Office 365" },
-            { "INTUNE_SMBIZ", "Microsoft Intune Small Business" },
-
-            // Project
-            { "PROJECTPREMIUM", "Project Plan 5" },
-            { "PROJECTPROFESSIONAL", "Project Plan 3" },
-            { "PROJECT_P1", "Project Plan 1" },
-            { "PROJECTESSENTIALS", "Project Online Essentials" },
-
-            // Visio
-            { "VISIO_PLAN1", "Visio Plan 1" },
-            { "VISIO_PLAN2", "Visio Plan 2" },
-            { "VISIOCLIENT", "Visio Online Plan 2" },
-
-            // Windows
-            { "WIN10_PRO_ENT_SUB", "Windows 10 Enterprise E3" },
-            { "WIN10_VDA_E3", "Windows 10 Enterprise E3" },
-            { "WIN10_VDA_E5", "Windows 10 Enterprise E5" },
-
-            // Common Add-ons
-            { "ATP_ENTERPRISE", "Office 365 Advanced Threat Protection" },
-            { "MCOEV", "Phone System" },
-            { "MCOMEETADV", "Audio Conferencing" },
-            { "DEFENDER_ENDPOINT_P1", "Microsoft Defender for Endpoint P1" },
-            { "DEFENDER_ENDPOINT_P2", "Microsoft Defender for Endpoint P2" }
-        };
-
-        public static string GetFriendlyName(string skuPartNumber, string defaultDisplayName)
-        {
-            if (SkuToFriendlyName.TryGetValue(skuPartNumber, out var friendlyName))
-            {
-                return friendlyName;
-            }
-
-            // If we don't have a mapping, clean up the default display name
-            if (!string.IsNullOrEmpty(defaultDisplayName))
-            {
-                // Remove common status words
-                var cleanName = defaultDisplayName
-                    .Replace("Enabled", "")
-                    .Replace("Disabled", "")
-                    .Replace("Pending", "")
-                    .Replace("Warning", "")
-                    .Replace("Suspended", "")
-                    .Trim();
-
-                return !string.IsNullOrEmpty(cleanName) ? cleanName : skuPartNumber;
-            }
-
-            return skuPartNumber;
-        }
-    }
-
-    // Custom User class to handle showInAddressList property correctly
-    public class CustomUser : User
-    {
-        [JsonPropertyName("showInAddressList")]
-        public new bool? ShowInAddressList { get; set; }
     }
 }

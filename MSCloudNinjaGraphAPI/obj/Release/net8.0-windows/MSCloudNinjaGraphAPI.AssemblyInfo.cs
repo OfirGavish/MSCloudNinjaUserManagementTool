@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCopyrightAttribute("MSCloudNinja")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("A tool for managing users in Entra ID")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.1")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ecc455161f45b440c5c5813c7dc3e6d8fd1a9f10")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5574e6d0c203e242a9a1e956a3624816fcfb6dae")]
 [assembly: System.Reflection.AssemblyProductAttribute("User Management Tool by MSCloudNinja")]
 [assembly: System.Reflection.AssemblyTitleAttribute("User Management Tool by MSCloudNinja")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

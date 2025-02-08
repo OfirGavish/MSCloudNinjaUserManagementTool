@@ -1,27 +1,51 @@
 # MS Cloud Ninja User Offboarding Tool
 
-A powerful and user-friendly Windows desktop application designed to streamline the process of offboarding users from Microsoft 365 environments. Built with .NET 8.0 and Microsoft Graph API, this tool provides a comprehensive solution for IT administrators to manage user offboarding tasks efficiently.
+A powerful and user-friendly Windows desktop application designed to streamline the process of offboarding users from Microsoft 365 environments. Built with .NET 8.0 and Microsoft Graph API, this tool provides a comprehensive solution for IT administrators to manage user offboarding and onboarding tasks efficiently.
 
 ## Features
 
-- **User Management**
+### User Management
+- **User Search and Selection**
   - Search and filter users from your Microsoft 365 environment
   - Select multiple users for batch processing
   - Modern dark-themed UI for comfortable usage
 
-- **Offboarding Actions**
+### Offboarding Features
+- **Comprehensive Offboarding Actions**
   - Disable user accounts
   - Remove users from Global Address List (GAL)
   - Remove users from all groups
   - Remove user licenses
   - Update manager for reporting employees
   - Revoke user sign-in sessions
+  - Detect on-premises synced users
+  - Display required Active Directory actions
 
-- **Security & Compliance**
+### Onboarding Features
+- **License Management**
+  - View available licenses with friendly names
+  - Display license availability (used/total)
+  - Automatic disable of unavailable licenses
+  - Detailed tooltips with license information
+  - Smart search for licenses by name or SKU
+  - Color-coded license display (white for available, gray for unavailable)
+
+- **User Creation**
+  - Create new users with comprehensive details
+  - Assign available licenses with usage location support
+  - Set manager and groups (supports all group types)
+  - Generate secure temporary passwords (auto-copied to clipboard)
+  - Additional email configuration options
+  - Support for mail-enabled security groups
+  - Automatic error handling with detailed feedback
+
+### Security & Compliance
+- **Enhanced Security**
   - Secure authentication using Microsoft Graph API
   - Detailed logging of all operations
   - Error handling and operation status tracking
   - Progress tracking for batch operations
+  - On-premises sync status detection
 
 ## Prerequisites
 
@@ -43,30 +67,53 @@ Note: The tool requires .NET 8.0 Runtime and a Windows operating system. Adminis
 
 ## Usage
 
-1. **Authentication**
-   - Launch the application
-   - Click on the authentication button to sign in with your Microsoft 365 administrator account
-   - Grant the necessary permissions when prompted
+### Authentication
+- Launch the application
+- Click on the authentication button to sign in with your Microsoft 365 administrator account
+- Grant the necessary permissions when prompted
 
-2. **User Selection**
+### User Offboarding
+1. **User Selection**
    - Use the search box to find specific users
    - Select one or multiple users from the grid
    - Users can be sorted by clicking on column headers
 
-3. **Action Selection**
-   - Choose the desired offboarding actions using the checkboxes:
-     - Disable User Account
-     - Remove from GAL
-     - Remove from Groups
-     - Remove Licenses
-     - Update Manager
-     - Revoke Sign-in
+2. **Action Selection**
+   - Choose the desired offboarding actions using the checkboxes
+   - System automatically detects if users are synced from on-premises
+   - Displays appropriate messages for required Active Directory actions
 
-4. **Execution**
+3. **Execution**
    - Click the "Execute" button to start the offboarding process
    - Monitor progress through the progress bar
    - View status updates in real-time
    - Check the logs for detailed operation information
+
+### User Onboarding
+1. **User Details**
+   - Fill in the required user information
+   - System validates input in real-time
+   - Set usage location for proper license assignment
+
+2. **License Assignment**
+   - View available licenses with friendly names
+   - See license availability (e.g., "45 available of 100 total")
+   - Color-coded display for license availability
+   - Tooltips show detailed license information
+   - Unavailable licenses are automatically disabled
+   - Search licenses by name or SKU
+
+3. **Group Assignment**
+   - Search and select groups (all types supported)
+   - Assign manager
+   - Set additional email properties
+   - Configure usage location
+
+4. **Password Management**
+   - Secure temporary password generation
+   - Automatic clipboard copy for easy sharing
+   - Force password change on first login
+   - Clear success messages with credential information
 
 ## Logging
 
@@ -82,6 +129,10 @@ Each log entry includes:
 - Timestamp with millisecond precision
 - Operation details
 - Error information (if applicable)
+- License assignment details
+- On-premises sync status
+- Group membership changes
+- Usage location settings
 
 ## Contributing
 
@@ -99,4 +150,3 @@ For support, please open an issue in the GitHub repository or contact the develo
 
 - Built using Microsoft Graph API
 - Powered by .NET 8.0
-- Created by MS Cloud Ninja

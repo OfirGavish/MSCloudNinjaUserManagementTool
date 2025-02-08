@@ -1,6 +1,7 @@
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using MSCloudNinjaGraphAPI.Services;
+using MSCloudNinjaGraphAPI.Models;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -37,6 +38,18 @@ namespace MSCloudNinjaGraphAPI.Controls
         private FlowLayoutPanel searchPanel;
         private ModernTextBox searchBox;
         private ModernLabel searchLabel;
+        private Dictionary<string, string> usageLocations = new Dictionary<string, string>
+        {
+            { "US", "United States" },
+            { "GB", "United Kingdom" },
+            { "CA", "Canada" },
+            { "AU", "Australia" },
+            { "DE", "Germany" },
+            { "FR", "France" },
+            { "IL", "Israel" }
+            // Add more as needed
+        };
+        private ModernComboBox usageLocationComboBox;
 
         public UserOnboardingControl(IUserManagementService userService, LogService logService)
         {
@@ -295,8 +308,37 @@ namespace MSCloudNinjaGraphAPI.Controls
             managerContainer.Controls.Add(managerSearchBox);
             managerRow.Controls.AddRange(new Control[] { managerLabel, managerContainer });
 
+            // Row 3: Usage Location
+            var usageLocationRow = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = false,
+                Margin = new Padding(0, 0, 0, 10)
+            };
+
+            var usageLocationLabel = new ModernLabel
+            {
+                Text = "Usage Location:",
+                Width = 120,
+                TextAlign = ContentAlignment.MiddleRight,
+                Margin = new Padding(0, 5, 5, 0)
+            };
+
+            usageLocationComboBox = new ModernComboBox { Width = 250 };
+            foreach (var location in usageLocations)
+            {
+                usageLocationComboBox.Items.Add(new KeyValuePair<string, string>(location.Key, location.Value));
+            }
+            usageLocationComboBox.DisplayMember = "Value";
+            usageLocationComboBox.ValueMember = "Key";
+            usageLocationComboBox.SelectedIndex = 0;  // Default to first item (US)
+
+            usageLocationRow.Controls.AddRange(new Control[] { usageLocationLabel, usageLocationComboBox });
+
             // Add rows to panel
-            panel.Controls.AddRange(new Control[] { emailRow, managerRow });
+            panel.Controls.AddRange(new Control[] { emailRow, managerRow, usageLocationRow });
 
             // Add dropdown panel to the form (not the flow panel)
             this.Controls.Add(managerDropdownPanel);
@@ -304,41 +346,82 @@ namespace MSCloudNinjaGraphAPI.Controls
             return panel;
         }
 
-        private async Task LoadLicenses()
+        private async Task LoadGroupsAndLicenses()
         {
             try
             {
-                licenseCheckboxPanel.Controls.Clear();
-                var licenses = await _userService.GetAvailableLicensesAsync();
+                btnCreateUser.Enabled = false;
+                Cursor = Cursors.WaitCursor;
 
-                int yPos = 10;
-                foreach (var license in licenses.OrderBy(l => l.FriendlyName))
+                // Load domains
+                var domains = await _userService.GetDomainNamesAsync();
+                _domains = domains;
+                domainComboBox.Items.Clear();
+                domainComboBox.Items.AddRange(domains.ToArray());
+                if (domains.Any())
+                {
+                    domainComboBox.SelectedIndex = 0;
+                }
+
+                // Load managers
+                var users = await _userService.GetAllUsersAsync();
+                _managers = users.OrderBy(u => u.DisplayName).ToList();
+
+                // Load groups
+                var groups = await _userService.GetAllGroupsAsync();
+                _groups = groups.Where(g => 
+                    // Include security groups
+                    g.SecurityEnabled == true ||
+                    // Include distribution groups
+                    (g.MailEnabled == true && g.SecurityEnabled == false) ||
+                    // Include Microsoft 365 groups (unified)
+                    (g.GroupTypes != null && g.GroupTypes.Contains("Unified"))
+                ).ToList();
+
+                groupsGrid.Rows.Clear();
+                foreach (var group in _groups)
+                {
+                    string groupType = group.SecurityEnabled == true ? 
+                        (group.MailEnabled == true ? "Mail-Enabled Security" : "Security") :
+                        (group.MailEnabled == true ? "Distribution" : "Other");
+                    
+                    if (group.GroupTypes != null && group.GroupTypes.Contains("Unified"))
+                    {
+                        groupType = "Microsoft 365";
+                    }
+
+                    groupsGrid.Rows.Add(false, group.Id, group.DisplayName, group.Description ?? "", groupType);
+                }
+
+                // Load licenses
+                var licenses = await _userService.GetAvailableLicensesAsync();
+                _licenses = licenses.OrderByDescending(l => l.HasAvailableLicenses)
+                    .ThenBy(l => l.FriendlyName)
+                    .ToList();
+
+                licenseCheckboxPanel.Controls.Clear();
+                foreach (var license in _licenses)
                 {
                     var checkbox = new CheckBox
                     {
                         Text = license.GetDisplayText(),
-                        Tag = license.SkuId,
+                        Tag = license.Id,
                         AutoSize = true,
-                        Location = new Point(10, yPos),
-                        ForeColor = Color.White,
-                        Enabled = license.HasAvailableLicenses
+                        Enabled = license.HasAvailableLicenses,
+                        Margin = new Padding(10, 5, 10, 5),
+                        ForeColor = license.HasAvailableLicenses ? Color.White : SystemColors.GrayText
                     };
-
-                    // Add tooltip to show more details
-                    var tooltip = new ToolTip();
-                    tooltip.SetToolTip(checkbox, 
-                        $"SKU: {license.SkuPartNumber}\n" +
-                        $"Total Licenses: {license.TotalLicenses}\n" +
-                        $"Used Licenses: {license.UsedLicenses}\n" +
-                        $"Available Licenses: {license.AvailableLicenses}");
-
                     licenseCheckboxPanel.Controls.Add(checkbox);
-                    yPos += 25;
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading licenses: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Error loading data: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnCreateUser.Enabled = true;
+                Cursor = Cursors.Default;
             }
         }
 
@@ -349,7 +432,7 @@ namespace MSCloudNinjaGraphAPI.Controls
             {
                 if (control is CheckBox checkbox)
                 {
-                    var license = _licenses.FirstOrDefault(l => l.SkuId == checkbox.Tag.ToString());
+                    var license = _licenses.FirstOrDefault(l => l.Id == checkbox.Tag.ToString());
                     if (license != null)
                     {
                         checkbox.Visible = string.IsNullOrEmpty(searchText) ||
@@ -474,14 +557,17 @@ namespace MSCloudNinjaGraphAPI.Controls
 
             var columns = new[]
             {
-                new GridColumnDefinition("Select", "Select", 70, typeof(DataGridViewCheckBoxColumn)),
+                new GridColumnDefinition("Select", "", 30, typeof(DataGridViewCheckBoxColumn)),
                 new GridColumnDefinition("Id", "Id", 0, typeof(DataGridViewTextBoxColumn)),
                 new GridColumnDefinition("Name", "Group Name", 300, typeof(DataGridViewTextBoxColumn)),
-                new GridColumnDefinition("Description", "Description", 400, typeof(DataGridViewTextBoxColumn))
+                new GridColumnDefinition("Description", "Description", 400, typeof(DataGridViewTextBoxColumn)),
+                new GridColumnDefinition("GroupType", "Type", 100, typeof(DataGridViewTextBoxColumn))
             };
             groupsGrid.AddColumns(columns);
             groupsGrid.Columns["Id"].Visible = false;
+            groupsGrid.Columns["GroupType"].Visible = false;
             groupsGrid.Columns["Description"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            groupsGrid.Columns["Select"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
 
             // Add controls in correct order (bottom to top)
             panel.Controls.Add(groupsGrid);    // Bottom layer
@@ -505,44 +591,6 @@ namespace MSCloudNinjaGraphAPI.Controls
             };
             button.Click += BtnCreateUser_Click;
             return button;
-        }
-
-        private async void LoadGroupsAndLicenses()
-        {
-            try
-            {
-                // Load domains
-                var domains = await _userService.GetDomainNamesAsync();
-                _domains = domains;
-                domainComboBox.Items.Clear();
-                domainComboBox.Items.AddRange(domains.ToArray());
-                if (domains.Any())
-                {
-                    domainComboBox.SelectedIndex = 0;
-                }
-
-                // Load managers
-                var users = await _userService.GetAllUsersAsync();
-                _managers = users.OrderBy(u => u.DisplayName).ToList();
-
-                // Load groups
-                var groups = await _userService.GetAllGroupsAsync();
-                _groups = groups.ToList();
-
-                groupsGrid.Rows.Clear();
-                foreach (var group in _groups)
-                {
-                    groupsGrid.Rows.Add(false, group.Id, group.DisplayName, group.Description);
-                }
-
-                // Load licenses
-                await LoadLicenses();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error loading data: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                await _logService.LogAsync($"Error in LoadGroupsAndLicenses: {ex.Message}", true);
-            }
         }
 
         private void SearchBox_TextChanged(object sender, EventArgs e)
@@ -628,14 +676,15 @@ namespace MSCloudNinjaGraphAPI.Controls
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(usernameTextBox.Text) || string.IsNullOrWhiteSpace(displayNameTextBox.Text))
+                if (!ValidateInput())
                 {
-                    MessageBox.Show("Username and Display Name are required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 btnCreateUser.Enabled = false;
                 Cursor = Cursors.WaitCursor;
+
+                var selectedLocation = (KeyValuePair<string, string>)usageLocationComboBox.SelectedItem;
 
                 var request = new CreateUserRequest
                 {
@@ -646,35 +695,73 @@ namespace MSCloudNinjaGraphAPI.Controls
                     AdditionalEmail = additionalEmailTextBox.Text.Trim(),
                     SetAdditionalEmailAsPrimary = primaryEmailCheckBox.Checked,
                     ManagerId = selectedManager?.Id,
+                    UsageLocation = selectedLocation.Key,  // Add usage location
                     GroupIds = groupsGrid.Rows.Cast<DataGridViewRow>()
                         .Where(r => Convert.ToBoolean(r.Cells["Select"].Value))
                         .Select(r => r.Cells["Id"].Value.ToString())
                         .ToList(),
                     LicenseIds = licenseCheckboxPanel.Controls.OfType<CheckBox>()
                         .Where(cb => cb.Checked)
-                        .Select(cb => cb.Tag.ToString())
+                        .Select(cb => _licenses.FirstOrDefault(l => l.Id == cb.Tag.ToString())?.SkuId)
+                        .Where(id => !string.IsNullOrEmpty(id))
                         .ToList()
                 };
 
-                await _userService.CreateUserAsync(request);
-                MessageBox.Show("User created successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                ClearForm();
-            }
-            catch (AggregateException ex)
-            {
-                // This is our custom exception for partial success
-                MessageBox.Show(ex.Message, "Partial Success", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                ClearForm();
+                var (user, password, errors) = await _userService.CreateUserAsync(request);
+
+                if (errors?.Any() == true)
+                {
+                    MessageBox.Show(
+                        $"User created with some errors:\n\n{string.Join("\n", errors)}",
+                        "Warning",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
+                // Always show the password if user was created
+                if (user != null)
+                {
+                    // Copy password to clipboard
+                    Clipboard.SetText(password);
+
+                    MessageBox.Show(
+                        $"User created successfully!\n\n" +
+                        $"Username: {user.UserPrincipalName}\n" +
+                        $"Password: {password}\n\n" +
+                        "The temporary password has been copied to your clipboard.\n" +
+                        "Please securely communicate this to the user.\n" +
+                        "They will be required to change it on first login.",
+                        "Success",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+
+                    ClearForm();
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error creating user: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(
+                    $"Error creating user: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
             finally
             {
                 btnCreateUser.Enabled = true;
                 Cursor = Cursors.Default;
             }
+        }
+
+        private bool ValidateInput()
+        {
+            if (string.IsNullOrWhiteSpace(usernameTextBox.Text) || string.IsNullOrWhiteSpace(displayNameTextBox.Text))
+            {
+                MessageBox.Show("Username and Display Name are required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            return true;
         }
 
         private void ClearForm()
