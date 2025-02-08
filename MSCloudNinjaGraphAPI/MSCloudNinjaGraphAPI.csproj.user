@@ -4,10 +4,10 @@
     <Compile Update="Controls\GridControls.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Update="Controls\ModernButton.cs">
-      <SubType>Component</SubType>
-    </Compile>
     <Compile Update="Controls\UserOffboardingControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\UserOnboardingControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Update="Form1.cs">

@@ -122,7 +122,13 @@ namespace MSCloudNinjaGraphAPI.Controls
     public class DataGridViewCheckBoxHeaderCell : DataGridViewColumnHeaderCell
     {
         private bool isChecked = false;
-        public event CheckBoxClickedHandler OnCheckBoxClicked;
+        public event CheckBoxClickedHandler? OnCheckBoxClicked;
+
+        public DataGridViewCheckBoxHeaderCell()
+        {
+            // Initialize the event to a no-op to avoid null checks
+            OnCheckBoxClicked += (state) => { };
+        }
 
         protected override void Paint(Graphics graphics, Rectangle clipBounds, Rectangle cellBounds, int rowIndex,
             DataGridViewElementStates dataGridViewElementState, object value, object formattedValue, string errorText,
@@ -132,26 +138,25 @@ namespace MSCloudNinjaGraphAPI.Controls
             base.Paint(graphics, clipBounds, cellBounds, rowIndex, dataGridViewElementState, value,
                 formattedValue, errorText, cellStyle, advancedBorderStyle, paintParts);
 
-            var checkBoxSize = 15;
-            var location = new Point(
-                cellBounds.Location.X + (cellBounds.Width - checkBoxSize) / 2,
-                cellBounds.Location.Y + (cellBounds.Height - checkBoxSize) / 2);
-            var checkBoxRect = new Rectangle(location, new Size(checkBoxSize, checkBoxSize));
+            Rectangle checkBoxRect = new Rectangle(
+                cellBounds.X + (cellBounds.Width - 15) / 2,
+                cellBounds.Y + (cellBounds.Height - 15) / 2,
+                15, 15);
 
-            ControlPaint.DrawCheckBox(graphics, checkBoxRect,
-                isChecked ? ButtonState.Checked : ButtonState.Normal);
+            ButtonState state = isChecked ? ButtonState.Checked : ButtonState.Normal;
+            ControlPaint.DrawCheckBox(graphics, checkBoxRect, state);
         }
 
         protected override void OnMouseClick(DataGridViewCellMouseEventArgs e)
         {
-            var checkBoxSize = 15;
-            var cellBounds = this.DataGridView.GetCellDisplayRectangle(-1, -1, true);
-            var checkBoxRect = new Rectangle(
-                cellBounds.Location.X + (cellBounds.Width - checkBoxSize) / 2,
-                cellBounds.Location.Y + (cellBounds.Height - checkBoxSize) / 2,
-                checkBoxSize, checkBoxSize);
+            Point clickPoint = new Point(e.X, e.Y);
+            Rectangle cellBounds = this.DataGridView.GetCellDisplayRectangle(-1, -1, true);
+            Rectangle checkBoxRect = new Rectangle(
+                cellBounds.X + (cellBounds.Width - 15) / 2,
+                cellBounds.Y + (cellBounds.Height - 15) / 2,
+                15, 15);
 
-            if (checkBoxRect.Contains(e.Location))
+            if (checkBoxRect.Contains(clickPoint))
             {
                 isChecked = !isChecked;
                 OnCheckBoxClicked?.Invoke(isChecked);
@@ -163,4 +168,115 @@ namespace MSCloudNinjaGraphAPI.Controls
     }
 
     public delegate void CheckBoxClickedHandler(bool state);
+
+    public class ModernButton : Button
+    {
+        public ModernButton()
+        {
+            InitializeStyle();
+        }
+
+        private void InitializeStyle()
+        {
+            BackColor = Color.FromArgb(45, 45, 48);
+            ForeColor = Color.White;
+            FlatStyle = FlatStyle.Flat;
+            Font = new Font("Segoe UI", 11);
+            Padding = new Padding(10);
+            FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
+            FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 60, 60);
+            FlatAppearance.MouseDownBackColor = Color.FromArgb(80, 80, 80);
+        }
+    }
+
+    public class ModernCheckBox : CheckBox
+    {
+        public ModernCheckBox()
+        {
+            InitializeStyle();
+        }
+
+        private void InitializeStyle()
+        {
+            ForeColor = Color.White;
+            BackColor = Color.Transparent;
+            Font = new Font("Segoe UI", 11);
+        }
+    }
+
+    public class ModernComboBox : ComboBox
+    {
+        public ModernComboBox()
+        {
+            InitializeStyle();
+        }
+
+        private void InitializeStyle()
+        {
+            BackColor = Color.FromArgb(40, 40, 40);
+            ForeColor = Color.White;
+            Font = new Font("Segoe UI", 11);
+            FlatStyle = FlatStyle.Flat;
+            DropDownStyle = ComboBoxStyle.DropDownList;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+
+            // Draw a custom border
+            using (var pen = new Pen(Color.FromArgb(60, 60, 60), 1))
+            {
+                e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            }
+        }
+
+        protected override void OnDrawItem(DrawItemEventArgs e)
+        {
+            if (e.Index < 0) return;
+
+            // Draw the background
+            e.DrawBackground();
+
+            // Get the item text
+            string text = GetItemText(Items[e.Index]);
+
+            // Set the color based on selection state
+            Color textColor = (e.State & DrawItemState.Selected) == DrawItemState.Selected
+                ? Color.White
+                : Color.White;
+
+            // Set the background color based on selection state
+            Color backColor = (e.State & DrawItemState.Selected) == DrawItemState.Selected
+                ? Color.FromArgb(60, 60, 60)
+                : Color.FromArgb(40, 40, 40);
+
+            // Fill the background
+            using (var brush = new SolidBrush(backColor))
+            {
+                e.Graphics.FillRectangle(brush, e.Bounds);
+            }
+
+            // Draw the text
+            using (var brush = new SolidBrush(textColor))
+            {
+                e.Graphics.DrawString(text, e.Font ?? Font, brush, e.Bounds.X + 3, e.Bounds.Y + 2);
+            }
+
+            // Draw focus rectangle if needed
+            if ((e.State & DrawItemState.Focus) == DrawItemState.Focus)
+            {
+                e.DrawFocusRectangle();
+            }
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == 0x0F) // WM_PAINT
+            {
+                this.DrawMode = DrawMode.OwnerDrawFixed;
+            }
+            base.WndProc(ref m);
+        }
+    }
 }

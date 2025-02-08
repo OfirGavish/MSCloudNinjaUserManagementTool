@@ -6,11 +6,11 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>User OffBoarding Tool by MSCloudNinja</AssemblyName>
-    <Product>User OffBoarding Tool by MSCloudNinja</Product>
-    <Title>User OffBoarding Tool by MSCloudNinja</Title>
+    <AssemblyName>User Management Tool by MSCloudNinja</AssemblyName>
+    <Product>User Management Tool by MSCloudNinja</Product>
+    <Title>User Management Tool by MSCloudNinja</Title>
     <Company>MSCloudNinja</Company>
-    <Description>A tool for User Offboarding from Entra ID</Description>
+    <Description>A tool for managing users in Entra ID</Description>
     <StartupObject>MSCloudNinjaGraphAPI.Program</StartupObject>
     <SignAssembly>False</SignAssembly>
     <Copyright>MSCloudNinja</Copyright>

@@ -55,11 +55,7 @@ C:\Users\ofirga\source\repos\MSCloudNinjaCAPTool\MSCloudNinjaGraphAPI\obj\Releas
 C:\Users\ofirga\source\repos\MSCloudNinjaCAPTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\Microsoft.IdentityModel.Validators.dll
 C:\Users\ofirga\source\repos\MSCloudNinjaCAPTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\System.ClientModel.dll
 C:\Users\ofirga\source\repos\MSCloudNinjaCAPTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\MSCloudNinjaGraphAPI.Controls.UserOffboardingControl.resources
-C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User OffBoarding Tool by MSCloudNinja.exe
-C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User OffBoarding Tool by MSCloudNinja.deps.json
-C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User OffBoarding Tool by MSCloudNinja.runtimeconfig.json
-C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User OffBoarding Tool by MSCloudNinja.dll
-C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User OffBoarding Tool by MSCloudNinja.pdb
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\logo.png
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\Azure.Core.dll
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\Azure.Identity.dll
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\Microsoft.Bcl.AsyncInterfaces.dll
@@ -105,9 +101,15 @@ C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAP
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\MSCloudNinjaGraphAPI.AssemblyInfoInputs.cache
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\MSCloudNinjaGraphAPI.AssemblyInfo.cs
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\MSCloudNinjaGraphAPI.csproj.CoreCompileInputs.cache
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\MSCloudNinjaGraphAPI.sourcelink.json
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\MSCloudN.334B8716.Up2Date
-C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\User OffBoarding Tool by MSCloudNinja.dll
-C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\refint\User OffBoarding Tool by MSCloudNinja.dll
-C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\User OffBoarding Tool by MSCloudNinja.pdb
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\MSCloudNinjaGraphAPI.genruntimeconfig.cache
-C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\ref\User OffBoarding Tool by MSCloudNinja.dll
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User Management Tool by MSCloudNinja.exe
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User Management Tool by MSCloudNinja.deps.json
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User Management Tool by MSCloudNinja.runtimeconfig.json
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User Management Tool by MSCloudNinja.dll
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Release\net8.0-windows\User Management Tool by MSCloudNinja.pdb
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\User Management Tool by MSCloudNinja.dll
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\refint\User Management Tool by MSCloudNinja.dll
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\User Management Tool by MSCloudNinja.pdb
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Release\net8.0-windows\ref\User Management Tool by MSCloudNinja.dll

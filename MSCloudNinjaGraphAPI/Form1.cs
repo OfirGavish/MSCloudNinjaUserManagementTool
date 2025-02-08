@@ -55,13 +55,16 @@ namespace MSCloudNinjaGraphAPI
         private GraphServiceClient? _graphClient;
         private Label statusLabel = null!;
         private Button browserAuthButton = null!;
+        private Panel contentPanel;
+        private UserOffboardingControl offboardingControl;
+        private UserOnboardingControl onboardingControl;
 
         public MainForm()
         {
             InitializeComponent();
             UseImmersiveDarkMode(Handle, true); // Enable dark mode for title bar
             this.Size = new Size(1200, 800);
-            this.Text = "User Offboarding Tool by MSCloudNinja";
+            this.Text = "User Management Tool by MSCloudNinja";
             SetupAuthPanel();
         }
 
@@ -122,7 +125,7 @@ namespace MSCloudNinjaGraphAPI
             // Create title label
             var titleLabel = new Label
             {
-                Text = "User Offboarding Tool",
+                Text = "User Management Tool",
                 Font = new Font("Segoe UI", 24, FontStyle.Regular),
                 ForeColor = Color.White,
                 AutoSize = true
@@ -249,14 +252,37 @@ namespace MSCloudNinjaGraphAPI
             // Create title label
             var titleLabel = new Label
             {
-                Text = "User Offboarding Tool",
+                Text = "User Management Tool",
                 Font = new Font("Segoe UI", 16, FontStyle.Regular),
                 ForeColor = Color.White,
                 AutoSize = true,
                 Location = new Point(20, 15)
             };
 
-            // Create logout button in header
+            // Create navigation buttons
+            var onboardingButton = new Button
+            {
+                Text = "Onboarding",
+                BackColor = Color.FromArgb(60, 60, 60),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(100, 30),
+                Location = new Point(headerPanel.Width - 600, 15),
+                Anchor = AnchorStyles.Right | AnchorStyles.Top
+            };
+
+            var offboardingButton = new Button
+            {
+                Text = "Offboarding",
+                BackColor = Color.FromArgb(60, 60, 60),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(100, 30),
+                Location = new Point(headerPanel.Width - 450, 15),
+                Anchor = AnchorStyles.Right | AnchorStyles.Top
+            };
+
+            // Create logout button
             var logoutButton = new Button
             {
                 Text = "Logout",
@@ -268,19 +294,26 @@ namespace MSCloudNinjaGraphAPI
                 Anchor = AnchorStyles.Right | AnchorStyles.Top
             };
 
-            headerPanel.Controls.AddRange(new Control[] { titleLabel, logoutButton });
+            // Add click handlers for navigation
+            onboardingButton.Click += (s, e) => SwitchToOnboarding();
+            offboardingButton.Click += (s, e) => SwitchToOffboarding();
+
+            headerPanel.Controls.AddRange(new Control[] { titleLabel, onboardingButton, offboardingButton, logoutButton });
 
             // Create content panel
-            var contentPanel = new Panel
+            contentPanel = new Panel
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.FromArgb(30, 30, 30),
-                Padding = new Padding(0, 20, 0, 0) // Add top padding for spacing
+                Padding = new Padding(0, 20, 0, 0)
             };
 
-            // Create user offboarding control
-            var userOffboardingControl = new UserOffboardingControl(_graphClient);
-
+            // Initialize controls
+            var logService = new LogService();
+            var userService = new UserManagementService(_graphClient, logService);
+            offboardingControl = new UserOffboardingControl(userService, logService);
+            onboardingControl = new UserOnboardingControl(userService, logService);
+            
             // Handle logout
             logoutButton.Click += (s, e) => 
             {
@@ -289,10 +322,26 @@ namespace MSCloudNinjaGraphAPI
                 SetupAuthPanel();
             };
 
-            contentPanel.Controls.Add(userOffboardingControl);
             mainContainer.Controls.Add(headerPanel);
             mainContainer.Controls.Add(contentPanel);
             Controls.Add(mainContainer);
+
+            // Show offboarding by default
+            SwitchToOffboarding();
+        }
+
+        private void SwitchToOnboarding()
+        {
+            contentPanel.Controls.Clear();
+            contentPanel.Controls.Add(onboardingControl);
+            onboardingControl.Dock = DockStyle.Fill;
+        }
+
+        private void SwitchToOffboarding()
+        {
+            contentPanel.Controls.Clear();
+            contentPanel.Controls.Add(offboardingControl);
+            offboardingControl.Dock = DockStyle.Fill;
         }
     }
 }

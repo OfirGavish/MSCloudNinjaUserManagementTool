@@ -112,3 +112,4 @@ C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAP
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Debug\net8.0-windows\MSCloudNinjaGraphAPI.genruntimeconfig.cache
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Debug\net8.0-windows\ref\User OffBoarding Tool by MSCloudNinja.dll
 C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\bin\Debug\net8.0-windows\logo.png
+C:\Users\ofirga\source\repos\MSCloudNinjaUserOffBoardingTool\MSCloudNinjaGraphAPI\obj\Debug\net8.0-windows\MSCloudNinjaGraphAPI.sourcelink.json

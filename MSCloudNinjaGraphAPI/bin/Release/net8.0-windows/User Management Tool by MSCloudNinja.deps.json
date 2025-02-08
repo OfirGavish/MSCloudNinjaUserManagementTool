@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v8.0": {
-      "User OffBoarding Tool by MSCloudNinja/1.0.0": {
+      "User Management Tool by MSCloudNinja/1.0.0": {
         "dependencies": {
           "Azure.Identity": "1.10.4",
           "Microsoft.Graph": "5.36.0",
@@ -18,7 +18,7 @@
           "Newtonsoft.Json": "13.0.3"
         },
         "runtime": {
-          "User OffBoarding Tool by MSCloudNinja.dll": {}
+          "User Management Tool by MSCloudNinja.dll": {}
         }
       },
       "Azure.Core/1.44.1": {
@@ -434,7 +434,7 @@
     }
   },
   "libraries": {
-    "User OffBoarding Tool by MSCloudNinja/1.0.0": {
+    "User Management Tool by MSCloudNinja/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

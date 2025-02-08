@@ -8,7 +8,7 @@
       "version": "1.0.0",
       "restore": {
         "projectUniqueName": "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj",
-        "projectName": "User OffBoarding Tool by MSCloudNinja",
+        "projectName": "User Management Tool by MSCloudNinja",
         "projectPath": "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj",
         "packagesPath": "C:\\Users\\ofirga\\.nuget\\packages\\",
         "outputPath": "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\obj\\",

@@ -24,6 +24,7 @@ namespace MSCloudNinjaGraphAPI.Controls
         private CheckBox chkRemoveFromGroups;
         private CheckBox chkRemoveLicenses;
         private CheckBox chkUpdateManager;
+        private CheckBox chkRevokeSignIn;
         private Button btnExecute;
         private BindingSource bindingSource;
         private Panel contentPanel;
@@ -33,10 +34,10 @@ namespace MSCloudNinjaGraphAPI.Controls
         private TextBox searchBox;
         private Label searchLabel;
 
-        public UserOffboardingControl(GraphServiceClient graphClient)
+        public UserOffboardingControl(IUserManagementService userService, LogService logService)
         {
-            _logService = new LogService();
-            _userService = new UserManagementService(graphClient, _logService);
+            _userService = userService;
+            _logService = logService;
             _users = new List<User>();
             bindingSource = new BindingSource();
 
@@ -107,6 +108,7 @@ namespace MSCloudNinjaGraphAPI.Controls
             chkRemoveFromGroups = CreateCheckBox("Remove from all groups", new Point(10, 110));
             chkRemoveLicenses = CreateCheckBox("Remove all 365 licenses", new Point(10, 140));
             chkUpdateManager = CreateCheckBox("Update manager for direct reports", new Point(10, 170));
+            chkRevokeSignIn = CreateCheckBox("Revoke all sign-in sessions", new Point(10, 200));
 
             btnExecute = new Button
             {
@@ -115,7 +117,7 @@ namespace MSCloudNinjaGraphAPI.Controls
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Size = new Size(200, 40),
-                Location = new Point(25, 210)
+                Location = new Point(25, 240)
             };
             btnExecute.Click += BtnExecute_Click;
 
@@ -127,6 +129,7 @@ namespace MSCloudNinjaGraphAPI.Controls
                 chkRemoveFromGroups,
                 chkRemoveLicenses,
                 chkUpdateManager,
+                chkRevokeSignIn,
                 btnExecute
             });
 
@@ -407,6 +410,8 @@ namespace MSCloudNinjaGraphAPI.Controls
         private async void BtnExecute_Click(object sender, EventArgs e)
         {
             bool hasErrors = false;
+            var syncedUsersMessages = new List<string>();
+
             try
             {
                 var selectedUsers = GetSelectedUsers();
@@ -425,7 +430,7 @@ namespace MSCloudNinjaGraphAPI.Controls
                 }
 
                 if (!chkDisableUser.Checked && !chkRemoveFromGAL.Checked &&
-                    !chkRemoveFromGroups.Checked && !chkRemoveLicenses.Checked && !chkUpdateManager.Checked)
+                    !chkRemoveFromGroups.Checked && !chkRemoveLicenses.Checked && !chkUpdateManager.Checked && !chkRevokeSignIn.Checked)
                 {
                     MessageBox.Show("Please select at least one action to perform.", "No Actions Selected",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -444,87 +449,152 @@ namespace MSCloudNinjaGraphAPI.Controls
                 statusLabel.Text = "Executing actions...";
 
                 var totalActions = selectedUsers.Count * (new[] { chkDisableUser.Checked, chkRemoveFromGAL.Checked,
-                    chkRemoveFromGroups.Checked, chkRemoveLicenses.Checked, chkUpdateManager.Checked }).Count(x => x);
+                    chkRemoveFromGroups.Checked, chkRemoveLicenses.Checked, chkUpdateManager.Checked,
+                    chkRevokeSignIn.Checked }).Count(x => x);
                 var completedActions = 0;
 
                 foreach (var user in selectedUsers)
                 {
                     await _logService.LogAsync($"Processing user: {user.DisplayName} ({user.Id})");
+                    
+                    // Check if user is synced from on-premises
+                    bool isOnPremUser = await _userService.IsUserSyncedFromOnPremAsync(user.Id);
+                    var syncedGroups = new List<Group>();
+                    var syncedReports = new List<User>();
+                    
+                    if (isOnPremUser)
+                    {
+                        await _logService.LogAsync($"User {user.DisplayName} is synced from on-premises");
+                        if (chkRemoveFromGroups.Checked)
+                        {
+                            syncedGroups = await _userService.GetUserSyncedGroupsAsync(user.Id);
+                        }
+                        if (chkUpdateManager.Checked)
+                        {
+                            syncedReports = await _userService.GetUserSyncedDirectReportsAsync(user.Id);
+                        }
+                    }
+
                     try
                     {
-                        if (chkDisableUser.Checked)
+                        if (chkDisableUser.Checked && !isOnPremUser)
                         {
                             await _logService.LogAsync($"Disabling user account for {user.DisplayName}");
                             await _userService.DisableUserAsync(user.Id);
-                            completedActions++;
-                            UpdateProgress(completedActions, totalActions);
                         }
+                        completedActions++;
+                        UpdateProgress(completedActions, totalActions);
 
-                        if (chkRemoveFromGAL.Checked)
+                        if (chkRemoveFromGAL.Checked && !isOnPremUser)
                         {
                             await _logService.LogAsync($"Removing {user.DisplayName} from Global Address List");
                             await _userService.RemoveFromGlobalAddressListAsync(user.Id);
-                            completedActions++;
-                            UpdateProgress(completedActions, totalActions);
                         }
+                        completedActions++;
+                        UpdateProgress(completedActions, totalActions);
 
                         if (chkRemoveFromGroups.Checked)
                         {
                             await _logService.LogAsync($"Removing {user.DisplayName} from all groups");
                             await _userService.RemoveFromAllGroupsAsync(user.Id);
-                            completedActions++;
-                            UpdateProgress(completedActions, totalActions);
                         }
+                        completedActions++;
+                        UpdateProgress(completedActions, totalActions);
 
                         if (chkRemoveLicenses.Checked)
                         {
                             await _logService.LogAsync($"Removing licenses for {user.DisplayName}");
                             await _userService.RemoveUserLicensesAsync(user.Id);
-                            completedActions++;
-                            UpdateProgress(completedActions, totalActions);
                         }
+                        completedActions++;
+                        UpdateProgress(completedActions, totalActions);
 
-                        if (chkUpdateManager.Checked)
+                        if (chkUpdateManager.Checked && !isOnPremUser)
                         {
                             await _logService.LogAsync($"Updating manager for direct reports of {user.DisplayName}");
                             await _userService.UpdateManagerForEmployeesAsync(user.Id);
-                            completedActions++;
-                            UpdateProgress(completedActions, totalActions);
                         }
-                        await _logService.LogAsync($"Completed processing user: {user.DisplayName}");
+                        completedActions++;
+                        UpdateProgress(completedActions, totalActions);
+
+                        if (chkRevokeSignIn.Checked)
+                        {
+                            await _logService.LogAsync($"Revoking sign-in sessions for {user.DisplayName}");
+                            await _userService.RevokeUserSignInSessionsAsync(user.Id);
+                        }
+                        completedActions++;
+                        UpdateProgress(completedActions, totalActions);
+
+                        if (isOnPremUser)
+                        {
+                            var message = new System.Text.StringBuilder();
+                            message.AppendLine($"User {user.DisplayName} is synced from on-premise, the following actions were not applied and should be performed on Active Directory:");
+                            
+                            if (chkDisableUser.Checked)
+                                message.AppendLine("1. Disable user");
+                            
+                            if (chkRemoveFromGAL.Checked)
+                                message.AppendLine("2. Remove from GAL");
+                            
+                            if (syncedGroups.Any())
+                            {
+                                message.AppendLine("3. Remove from the following synced groups:");
+                                foreach (var group in syncedGroups)
+                                {
+                                    message.AppendLine($"   - {group.DisplayName}");
+                                }
+                            }
+                            
+                            if (syncedReports.Any())
+                            {
+                                message.AppendLine("4. Update manager attribute for the following synced direct reports:");
+                                foreach (var report in syncedReports)
+                                {
+                                    message.AppendLine($"   - {report.DisplayName}");
+                                }
+                            }
+
+                            syncedUsersMessages.Add(message.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
                         hasErrors = true;
-                        await _logService.LogAsync($"Error processing user {user.DisplayName} ({user.Id}): {ex.Message}", true);
+                        await _logService.LogAsync($"Error processing user {user.DisplayName}: {ex.Message}", true);
                     }
                 }
 
-                await LoadUsers();
-                
-                if (hasErrors)
+                progressBar.Visible = false;
+                statusLabel.Text = hasErrors ? "Completed with errors" : "Completed successfully";
+
+                if (syncedUsersMessages.Any())
                 {
-                    MessageBox.Show("Operation completed with errors. Please check the logs for details.", 
-                        "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    var fullMessage = string.Join("\n\n", syncedUsersMessages);
+                    MessageBox.Show(fullMessage, "On-Premises Actions Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else if (hasErrors)
+                {
+                    MessageBox.Show("Some actions failed. Check the logs for details.", "Completed with Errors",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 else
                 {
-                    MessageBox.Show("Selected operations completed successfully.", 
-                        "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("All actions completed successfully!", "Success",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
+
+                await LoadUsers();
             }
             catch (Exception ex)
             {
-                hasErrors = true;
                 await _logService.LogAsync($"Error executing actions: {ex.Message}", true);
-                MessageBox.Show($"An error occurred: {ex.Message}", 
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Error executing actions: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
                 SetControlsEnabled(true);
                 progressBar.Visible = false;
-                statusLabel.Text = hasErrors ? "Completed with errors" : "Ready";
             }
         }
 
@@ -541,6 +611,7 @@ namespace MSCloudNinjaGraphAPI.Controls
             chkRemoveFromGroups.Enabled = enabled;
             chkRemoveLicenses.Enabled = enabled;
             chkUpdateManager.Enabled = enabled;
+            chkRevokeSignIn.Enabled = enabled;
             btnExecute.Enabled = enabled;
         }
 
