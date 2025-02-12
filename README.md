@@ -59,7 +59,7 @@ A powerful and user-friendly Windows desktop application designed to streamline 
 To get started with the MS Cloud Ninja User Offboarding Tool:
 
 1. Download our digitally signed installer from our secure storage:
-   https://storage.mscloudninja.com/MSCNUserOffBoardingTool_Installer.exe
+   https://storage.mscloudninja.com/MSCNUserManagement_Installer.exe
 2. Execute the installer and follow the guided installation process
 3. Launch the application from your Start Menu or Desktop shortcut
 
