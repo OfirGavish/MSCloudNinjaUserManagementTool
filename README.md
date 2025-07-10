@@ -42,10 +42,21 @@ A powerful and user-friendly Windows desktop application designed to streamline 
 ### Security & Compliance
 - **Enhanced Security**
   - Secure authentication using Microsoft Graph API
+    - The application uses OAuth 2.0 protocol for authentication and authorization
+    - Access tokens are scoped to the permissions granted during the Azure AD application registration
+    - Tokens are securely stored in memory during the session and cleared upon logout
   - Detailed logging of all operations
+    - Logs include timestamps, operation details, and error information
+    - Logs are stored locally in `%LocalAppData%\MSCloudNinja\Logs` with a daily rotation mechanism
   - Error handling and operation status tracking
+    - Errors are captured with detailed stack traces for debugging
+    - Status tracking includes real-time updates on batch operations
   - Progress tracking for batch operations
+    - Batch operations are executed asynchronously with progress bars
+    - Each operation is logged with success or failure status
   - On-premises sync status detection
+    - The tool queries Microsoft Graph API to detect if users are synced from on-premises Active Directory
+    - Displays required actions for on-premises synced users to ensure compliance.
 
 ## Prerequisites
 
@@ -71,6 +82,16 @@ Note: The tool requires .NET 8.0 Runtime and a Windows operating system. Adminis
 - Launch the application
 - Click on the authentication button to sign in with your Microsoft 365 administrator account
 - Grant the necessary permissions when prompted
+- The application uses Microsoft Graph API for secure authentication
+  - It redirects you to the Microsoft login page
+  - After successful login, an access token is retrieved
+  - The token is used to interact with Microsoft 365 services securely
+- Permissions required include:
+  - User.Read.All
+  - Group.ReadWrite.All
+  - Directory.ReadWrite.All
+  - LicenseManagement.ReadWrite.All
+- The authentication process ensures that only authorized administrators can perform actions.
 
 ### User Offboarding
 1. **User Selection**
