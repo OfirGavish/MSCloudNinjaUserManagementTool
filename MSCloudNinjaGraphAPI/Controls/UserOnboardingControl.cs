@@ -32,6 +32,10 @@ namespace MSCloudNinjaGraphAPI.Controls
         private ModernTextBox surnameTextBox;
         private ModernTextBox displayNameTextBox;
         private ModernTextBox additionalEmailTextBox;
+        private ModernTextBox jobTitleTextBox;
+        private ModernTextBox departmentTextBox;
+        private ModernTextBox officeLocationTextBox;
+        private ModernTextBox businessPhoneTextBox;
         private ModernCheckBox primaryEmailCheckBox;
         private ModernButton btnCreateUser;
         private Panel contentPanel;
@@ -188,8 +192,68 @@ namespace MSCloudNinjaGraphAPI.Controls
 
             row3.Controls.AddRange(new Control[] { displayNameLabel, displayNameTextBox });
 
+            // Row 4: Job Title and Department
+            var row4 = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = false,
+                Margin = new Padding(0, 0, 0, 10)
+            };
+
+            var jobTitleLabel = new ModernLabel
+            {
+                Text = "Job Title:",
+                Width = 120,
+                TextAlign = ContentAlignment.MiddleRight,
+                Margin = new Padding(0, 5, 5, 0)
+            };
+            jobTitleTextBox = new ModernTextBox { Width = 250 };
+
+            var departmentLabel = new ModernLabel
+            {
+                Text = "Department:",
+                Width = 120,
+                TextAlign = ContentAlignment.MiddleRight,
+                Margin = new Padding(0, 5, 5, 0)
+            };
+            departmentTextBox = new ModernTextBox { Width = 250 };
+
+            row4.Controls.AddRange(new Control[] { jobTitleLabel, jobTitleTextBox, departmentLabel, departmentTextBox });
+
+            // Row 5: Office Location and Business Phone
+            var row5 = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = false,
+                Margin = new Padding(0, 0, 0, 10)
+            };
+
+            var officeLocationLabel = new ModernLabel
+            {
+                Text = "Office Location:",
+                Width = 120,
+                TextAlign = ContentAlignment.MiddleRight,
+                Margin = new Padding(0, 5, 5, 0)
+            };
+            officeLocationTextBox = new ModernTextBox { Width = 250 };
+
+            var businessPhoneLabel = new ModernLabel
+            {
+                Text = "Business Phone:",
+                Width = 120,
+                TextAlign = ContentAlignment.MiddleRight,
+                Margin = new Padding(0, 5, 5, 0)
+            };
+            businessPhoneTextBox = new ModernTextBox { Width = 250 };
+
+            row5.Controls.AddRange(new Control[] { officeLocationLabel, officeLocationTextBox, businessPhoneLabel, businessPhoneTextBox });
+
             // Add all rows to the panel
-            panel.Controls.AddRange(new Control[] { row1, row2, row3 });
+            panel.Controls.AddRange(new Control[] { row1, row2, row3, row4, row5 });
 
             // Auto-generate display name when first name or surname changes
             firstNameTextBox.TextChanged += (s, e) => UpdateDisplayName();
@@ -381,16 +445,17 @@ namespace MSCloudNinjaGraphAPI.Controls
                 groupsGrid.Rows.Clear();
                 foreach (var group in _groups)
                 {
-                    string groupType = group.SecurityEnabled == true ? 
-                        (group.MailEnabled == true ? "Mail-Enabled Security" : "Security") :
-                        (group.MailEnabled == true ? "Distribution" : "Other");
+                    string groupType = GetGroupTypeDescription(group);
+                    bool isDynamic = !string.IsNullOrEmpty(group.MembershipRule);
                     
-                    if (group.GroupTypes != null && group.GroupTypes.Contains("Unified"))
+                    int rowIndex = groupsGrid.Rows.Add(false, group.Id, group.DisplayName, group.Description ?? "", groupType);
+                    
+                    // Disable dynamic groups as they manage membership automatically
+                    if (isDynamic)
                     {
-                        groupType = "Microsoft 365";
+                        groupsGrid.Rows[rowIndex].Cells["Select"].ReadOnly = true;
+                        groupsGrid.Rows[rowIndex].DefaultCellStyle.ForeColor = Color.Gray;
                     }
-
-                    groupsGrid.Rows.Add(false, group.Id, group.DisplayName, group.Description ?? "", groupType);
                 }
 
                 // Load licenses
@@ -565,7 +630,7 @@ namespace MSCloudNinjaGraphAPI.Controls
             };
             groupsGrid.AddColumns(columns);
             groupsGrid.Columns["Id"].Visible = false;
-            groupsGrid.Columns["GroupType"].Visible = false;
+            groupsGrid.Columns["GroupType"].Visible = true; // Show the enhanced group type information
             groupsGrid.Columns["Description"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             groupsGrid.Columns["Select"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
 
@@ -696,8 +761,12 @@ namespace MSCloudNinjaGraphAPI.Controls
                     SetAdditionalEmailAsPrimary = primaryEmailCheckBox.Checked,
                     ManagerId = selectedManager?.Id,
                     UsageLocation = selectedLocation.Key,  // Add usage location
+                    JobTitle = jobTitleTextBox.Text.Trim(),
+                    Department = departmentTextBox.Text.Trim(),
+                    OfficeLocation = officeLocationTextBox.Text.Trim(),
+                    BusinessPhone = businessPhoneTextBox.Text.Trim(),
                     GroupIds = groupsGrid.Rows.Cast<DataGridViewRow>()
-                        .Where(r => Convert.ToBoolean(r.Cells["Select"].Value))
+                        .Where(r => Convert.ToBoolean(r.Cells["Select"].Value) && !r.Cells["Select"].ReadOnly)
                         .Select(r => r.Cells["Id"].Value.ToString())
                         .ToList(),
                     LicenseIds = licenseCheckboxPanel.Controls.OfType<CheckBox>()
@@ -771,6 +840,10 @@ namespace MSCloudNinjaGraphAPI.Controls
             surnameTextBox.Clear();
             displayNameTextBox.Clear();
             additionalEmailTextBox.Clear();
+            jobTitleTextBox.Clear();
+            departmentTextBox.Clear();
+            officeLocationTextBox.Clear();
+            businessPhoneTextBox.Clear();
             primaryEmailCheckBox.Checked = false;
             managerSearchBox.Clear();
             selectedManager = null;
@@ -786,6 +859,47 @@ namespace MSCloudNinjaGraphAPI.Controls
             {
                 checkbox.Checked = false;
             }
+        }
+
+        private string GetGroupTypeDescription(Group group)
+        {
+            // Enhanced group type categorization
+            bool isDynamic = !string.IsNullOrEmpty(group.MembershipRule);
+            string dynamicPrefix = isDynamic ? "Dynamic " : "";
+            
+            if (group.GroupTypes != null && group.GroupTypes.Contains("Unified"))
+            {
+                // Microsoft 365 group
+                if (group.ResourceProvisioningOptions != null)
+                {
+                    if (group.ResourceProvisioningOptions.Contains("Team"))
+                    {
+                        return $"{dynamicPrefix}Microsoft 365 (Teams-enabled)";
+                    }
+                    if (group.ResourceProvisioningOptions.Contains("Yammer"))
+                    {
+                        return $"{dynamicPrefix}Microsoft 365 (Yammer Community)";
+                    }
+                }
+                return $"{dynamicPrefix}Microsoft 365";
+            }
+            
+            if (group.IsAssignableToRole == true)
+            {
+                return group.SecurityEnabled == true ? $"{dynamicPrefix}Role-assignable Security" : $"{dynamicPrefix}Role-assignable";
+            }
+            
+            if (group.SecurityEnabled == true)
+            {
+                return group.MailEnabled == true ? $"{dynamicPrefix}Mail-Enabled Security" : $"{dynamicPrefix}Security";
+            }
+            
+            if (group.MailEnabled == true)
+            {
+                return $"{dynamicPrefix}Distribution";
+            }
+            
+            return $"{dynamicPrefix}Other";
         }
     }
 }

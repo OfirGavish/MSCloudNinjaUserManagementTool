@@ -31,12 +31,25 @@ namespace MSCloudNinjaGraphAPI.Services
         public List<string> GroupIds { get; set; }
         public List<string> LicenseIds { get; set; }
         public string UsageLocation { get; set; } = "US";  // Default to US if not specified
+        
+        // Additional user attributes
+        public string JobTitle { get; set; }
+        public string Department { get; set; }
+        public string CompanyName { get; set; }
+        public string OfficeLocation { get; set; }
+        public string BusinessPhone { get; set; }
+        public string MobilePhone { get; set; }
+        public string EmployeeId { get; set; }
+        public string EmployeeType { get; set; }
+        public string CostCenter { get; set; }
+        public string PreferredLanguage { get; set; }
     }
 
     public interface IUserManagementService
     {
         Task<List<User>> GetAllUsersAsync();
         Task<List<Group>> GetAllGroupsAsync();
+        Task<List<Group>> GetAllGroupsAsync(bool includeTeamsEnabled = false, bool includeRoleAssignable = false, bool includeDynamic = true);
         Task<List<License>> GetAvailableLicensesAsync();
         Task<(User User, string Password, List<string> Errors)> CreateUserAsync(CreateUserRequest request);
         Task DisableUserAsync(string userId);
@@ -86,7 +99,19 @@ namespace MSCloudNinjaGraphAPI.Services
                     "userPrincipalName",
                     "accountEnabled",
                     "department",
-                    "jobTitle"
+                    "jobTitle",
+                    "givenName",
+                    "surname",
+                    "mail",
+                    "mobilePhone",
+                    "businessPhones",
+                    "officeLocation",
+                    "employeeId",
+                    "employeeType",
+                    "companyName",
+                    "onPremisesSyncEnabled",
+                    "createdDateTime",
+                    "lastPasswordChangeDateTime"
                 };
 
                 await LogOperationAsync("Starting to fetch users...");
@@ -114,7 +139,23 @@ namespace MSCloudNinjaGraphAPI.Services
                         .GetAsync();
                 }
 
-                await LogOperationAsync($"Finished loading {users.Count} users from {pageCount} pages.");
+                await LogOperationAsync($"Finished loading {users.Count} users from {pageCount} pages with enhanced attributes.");
+                
+                // Log some statistics about the additional data retrieved
+                var usersWithJobTitle = users.Count(u => !string.IsNullOrEmpty(u.JobTitle));
+                var usersWithDepartment = users.Count(u => !string.IsNullOrEmpty(u.Department));
+                var usersWithOffice = users.Count(u => !string.IsNullOrEmpty(u.OfficeLocation));
+                var syncedUsers = users.Count(u => u.OnPremisesSyncEnabled == true);
+                
+                if (usersWithJobTitle > 0)
+                    await LogOperationAsync($"  Users with Job Title: {usersWithJobTitle}");
+                if (usersWithDepartment > 0)
+                    await LogOperationAsync($"  Users with Department: {usersWithDepartment}");
+                if (usersWithOffice > 0)
+                    await LogOperationAsync($"  Users with Office Location: {usersWithOffice}");
+                if (syncedUsers > 0)
+                    await LogOperationAsync($"  On-premises synced users: {syncedUsers}");
+                
                 return users;
             }
             catch (Exception ex)
@@ -140,7 +181,14 @@ namespace MSCloudNinjaGraphAPI.Services
                     "groupTypes",
                     "mailEnabled",
                     "securityEnabled",
-                    "membershipRule"
+                    "membershipRule",
+                    "resourceProvisioningOptions",
+                    "isAssignableToRole",
+                    "visibility",
+                    "hideFromAddressLists",
+                    "hideFromOutlookClients",
+                    "createdDateTime",
+                    "renewedDateTime"
                 };
 
                 await LogOperationAsync("Starting to fetch assignable groups...");
@@ -156,13 +204,11 @@ namespace MSCloudNinjaGraphAPI.Services
 
                 if (response?.Value != null)
                 {
-                    // Filter out dynamic groups (those with membershipRule)
-                    var validGroups = response.Value
-                        .Where(g => string.IsNullOrEmpty(g.MembershipRule))
-                        .ToList();
+                    // Include all groups, but note dynamic groups separately
+                    var allGroups = response.Value.ToList();
 
-                    await LogOperationAsync($"Found {validGroups.Count} groups on first page");
-                    groups.AddRange(validGroups);
+                    await LogOperationAsync($"Found {allGroups.Count} groups on first page (including dynamic groups)");
+                    groups.AddRange(allGroups);
                     pageCount++;
 
                     // Get additional pages if they exist
@@ -172,9 +218,7 @@ namespace MSCloudNinjaGraphAPI.Services
                         var nextPageResponse = await _graphClient.Groups.WithUrl(nextPageRequest).GetAsync();
                         if (nextPageResponse?.Value != null)
                         {
-                            var nextPageGroups = nextPageResponse.Value
-                                .Where(g => string.IsNullOrEmpty(g.MembershipRule))
-                                .ToList();
+                            var nextPageGroups = nextPageResponse.Value.ToList();
 
                             await LogOperationAsync($"Found {nextPageGroups.Count} groups on page {pageCount + 1}");
                             groups.AddRange(nextPageGroups);
@@ -184,20 +228,29 @@ namespace MSCloudNinjaGraphAPI.Services
                     }
                 }
 
-                // Log group types breakdown
+                // Log group types breakdown with enhanced categorization
                 var stats = groups
-                    .GroupBy(g => g.SecurityEnabled == true ? 
-                        (g.MailEnabled == true ? "Mail-Enabled Security" : "Security") :
-                        (g.MailEnabled == true ? "Distribution" : 
-                         (g.GroupTypes != null && g.GroupTypes.Contains("Unified") ? "Microsoft 365" : "Other")))
+                    .GroupBy(g => GetGroupTypeDescription(g))
                     .Select(g => $"{g.Key}: {g.Count()}")
                     .ToList();
 
-                await LogOperationAsync($"Found total of {groups.Count} assignable groups:");
+                await LogOperationAsync($"Found total of {groups.Count} assignable groups with enhanced metadata:");
                 foreach (var stat in stats)
                 {
                     await LogOperationAsync($"  {stat}");
                 }
+
+                // Log additional insights
+                var dynamicCount = groups.Count(g => !string.IsNullOrEmpty(g.MembershipRule));
+                var teamsEnabledCount = groups.Count(g => g.ResourceProvisioningOptions?.Contains("Team") == true);
+                var roleAssignableCount = groups.Count(g => g.IsAssignableToRole == true);
+                
+                if (dynamicCount > 0)
+                    await LogOperationAsync($"  Dynamic groups (auto-managed): {dynamicCount}");
+                if (teamsEnabledCount > 0)
+                    await LogOperationAsync($"  Teams-enabled groups: {teamsEnabledCount}");
+                if (roleAssignableCount > 0)
+                    await LogOperationAsync($"  Role-assignable groups: {roleAssignableCount}");
 
                 return groups;
             }
@@ -206,6 +259,39 @@ namespace MSCloudNinjaGraphAPI.Services
                 await LogExceptionAsync(ex);
                 throw;
             }
+        }
+
+        public async Task<List<Group>> GetAllGroupsAsync(bool includeTeamsEnabled = false, bool includeRoleAssignable = false, bool includeDynamic = true)
+        {
+            // Get all groups first
+            var allGroups = await GetAllGroupsAsync();
+            
+            // Apply additional filtering based on parameters
+            var filteredGroups = allGroups.AsEnumerable();
+            
+            if (!includeDynamic)
+            {
+                filteredGroups = filteredGroups.Where(g => string.IsNullOrEmpty(g.MembershipRule));
+                await LogOperationAsync("Filtered out dynamic groups");
+            }
+            
+            if (!includeTeamsEnabled)
+            {
+                filteredGroups = filteredGroups.Where(g => 
+                    g.ResourceProvisioningOptions?.Contains("Team") != true);
+                await LogOperationAsync("Filtered out Teams-enabled groups");
+            }
+            
+            if (!includeRoleAssignable)
+            {
+                filteredGroups = filteredGroups.Where(g => g.IsAssignableToRole != true);
+                await LogOperationAsync("Filtered out role-assignable groups");
+            }
+            
+            var result = filteredGroups.ToList();
+            await LogOperationAsync($"Applied advanced filtering, returning {result.Count} groups");
+            
+            return result;
         }
 
         public async Task<List<License>> GetAvailableLicensesAsync()
@@ -300,8 +386,32 @@ namespace MSCloudNinjaGraphAPI.Services
                     {
                         ForceChangePasswordNextSignIn = true,
                         Password = password
-                    }
+                    },
+                    // Additional attributes
+                    JobTitle = !string.IsNullOrEmpty(request.JobTitle) ? request.JobTitle : null,
+                    Department = !string.IsNullOrEmpty(request.Department) ? request.Department : null,
+                    CompanyName = !string.IsNullOrEmpty(request.CompanyName) ? request.CompanyName : null,
+                    OfficeLocation = !string.IsNullOrEmpty(request.OfficeLocation) ? request.OfficeLocation : null,
+                    EmployeeId = !string.IsNullOrEmpty(request.EmployeeId) ? request.EmployeeId : null,
+                    EmployeeType = !string.IsNullOrEmpty(request.EmployeeType) ? request.EmployeeType : null,
+                    PreferredLanguage = !string.IsNullOrEmpty(request.PreferredLanguage) ? request.PreferredLanguage : null
                 };
+
+                // Set phone numbers if provided
+                var businessPhones = new List<string>();
+                if (!string.IsNullOrEmpty(request.BusinessPhone))
+                {
+                    businessPhones.Add(request.BusinessPhone);
+                }
+                if (businessPhones.Any())
+                {
+                    user.BusinessPhones = businessPhones;
+                }
+
+                if (!string.IsNullOrEmpty(request.MobilePhone))
+                {
+                    user.MobilePhone = request.MobilePhone;
+                }
 
                 if (!string.IsNullOrEmpty(request.AdditionalEmail))
                 {
@@ -314,6 +424,34 @@ namespace MSCloudNinjaGraphAPI.Services
 
                 createdUser = await _graphClient.Users.PostAsync(user);
                 await LogOperationAsync($"User {request.UserPrincipalName} created successfully");
+
+                // Log additional attributes that were set
+                var additionalAttributes = new List<string>();
+                if (!string.IsNullOrEmpty(request.JobTitle)) additionalAttributes.Add($"Job Title: {request.JobTitle}");
+                if (!string.IsNullOrEmpty(request.Department)) additionalAttributes.Add($"Department: {request.Department}");
+                if (!string.IsNullOrEmpty(request.OfficeLocation)) additionalAttributes.Add($"Office: {request.OfficeLocation}");
+                if (!string.IsNullOrEmpty(request.BusinessPhone)) additionalAttributes.Add($"Business Phone: {request.BusinessPhone}");
+                
+                if (additionalAttributes.Any())
+                {
+                    await LogOperationAsync($"Enhanced user attributes set: {string.Join(", ", additionalAttributes)}");
+                }
+
+                // Handle custom attributes that require separate API calls
+                if (!string.IsNullOrEmpty(request.CostCenter))
+                {
+                    try
+                    {
+                        // CostCenter is typically stored in extension attributes or custom properties
+                        // This would require additional API calls depending on the organization's setup
+                        await LogOperationAsync($"Note: CostCenter ({request.CostCenter}) requires custom attribute configuration");
+                    }
+                    catch (Exception ex)
+                    {
+                        await LogExceptionAsync(ex);
+                        errors.Add($"Failed to set cost center: {ex.Message}");
+                    }
+                }
 
                 // Set manager if specified
                 if (!string.IsNullOrEmpty(request.ManagerId))
@@ -765,6 +903,47 @@ namespace MSCloudNinjaGraphAPI.Services
                 await LogExceptionAsync(ex);
                 throw;
             }
+        }
+
+        private string GetGroupTypeDescription(Group group)
+        {
+            // Enhanced group type categorization
+            bool isDynamic = !string.IsNullOrEmpty(group.MembershipRule);
+            string dynamicPrefix = isDynamic ? "Dynamic " : "";
+            
+            if (group.GroupTypes != null && group.GroupTypes.Contains("Unified"))
+            {
+                // Microsoft 365 group
+                if (group.ResourceProvisioningOptions != null)
+                {
+                    if (group.ResourceProvisioningOptions.Contains("Team"))
+                    {
+                        return $"{dynamicPrefix}Microsoft 365 (Teams-enabled)";
+                    }
+                    if (group.ResourceProvisioningOptions.Contains("Yammer"))
+                    {
+                        return $"{dynamicPrefix}Microsoft 365 (Yammer Community)";
+                    }
+                }
+                return $"{dynamicPrefix}Microsoft 365";
+            }
+            
+            if (group.IsAssignableToRole == true)
+            {
+                return group.SecurityEnabled == true ? $"{dynamicPrefix}Role-assignable Security" : $"{dynamicPrefix}Role-assignable";
+            }
+            
+            if (group.SecurityEnabled == true)
+            {
+                return group.MailEnabled == true ? $"{dynamicPrefix}Mail-Enabled Security" : $"{dynamicPrefix}Security";
+            }
+            
+            if (group.MailEnabled == true)
+            {
+                return $"{dynamicPrefix}Distribution";
+            }
+            
+            return $"{dynamicPrefix}Other";
         }
 
         // Custom User class to handle showInAddressList property correctly
