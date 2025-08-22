@@ -1,32 +1,25 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj": {}
+    "/home/runner/work/MSCloudNinjaUserManagementTool/MSCloudNinjaUserManagementTool/MSCloudNinjaGraphAPI/MSCloudNinjaGraphAPI.csproj": {}
   },
   "projects": {
-    "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj": {
+    "/home/runner/work/MSCloudNinjaUserManagementTool/MSCloudNinjaUserManagementTool/MSCloudNinjaGraphAPI/MSCloudNinjaGraphAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj",
+        "projectUniqueName": "/home/runner/work/MSCloudNinjaUserManagementTool/MSCloudNinjaUserManagementTool/MSCloudNinjaGraphAPI/MSCloudNinjaGraphAPI.csproj",
         "projectName": "User Management Tool by MSCloudNinja",
-        "projectPath": "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\MSCloudNinjaGraphAPI.csproj",
-        "packagesPath": "C:\\Users\\ofirga\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\ofirga\\source\\repos\\MSCloudNinjaUserOffBoardingTool\\MSCloudNinjaGraphAPI\\obj\\",
+        "projectPath": "/home/runner/work/MSCloudNinjaUserManagementTool/MSCloudNinjaUserManagementTool/MSCloudNinjaGraphAPI/MSCloudNinjaGraphAPI.csproj",
+        "packagesPath": "/home/runner/.nuget/packages/",
+        "outputPath": "/home/runner/work/MSCloudNinjaUserManagementTool/MSCloudNinjaUserManagementTool/MSCloudNinjaGraphAPI/obj/",
         "projectStyle": "PackageReference",
-        "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-        ],
         "configFilePaths": [
-          "C:\\Users\\ofirga\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "/home/runner/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0-windows"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -39,13 +32,7 @@
           "warnAsError": [
             "NU1605"
           ]
-        },
-        "restoreAuditProperties": {
-          "enableAudit": "true",
-          "auditLevel": "low",
-          "auditMode": "direct"
-        },
-        "SdkAnalysisLevel": "9.0.100"
+        }
       },
       "frameworks": {
         "net8.0-windows7.0": {
@@ -98,12 +85,9 @@
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
-            },
-            "Microsoft.WindowsDesktop.App.WindowsForms": {
-              "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.101/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/8.0.119/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
