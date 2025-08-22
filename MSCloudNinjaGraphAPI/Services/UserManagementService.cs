@@ -49,6 +49,7 @@ namespace MSCloudNinjaGraphAPI.Services
     {
         Task<List<User>> GetAllUsersAsync();
         Task<List<Group>> GetAllGroupsAsync();
+        Task<List<Group>> GetAllGroupsAsync(bool includeTeamsEnabled = false, bool includeRoleAssignable = false, bool includeDynamic = true);
         Task<List<License>> GetAvailableLicensesAsync();
         Task<(User User, string Password, List<string> Errors)> CreateUserAsync(CreateUserRequest request);
         Task DisableUserAsync(string userId);
@@ -98,7 +99,19 @@ namespace MSCloudNinjaGraphAPI.Services
                     "userPrincipalName",
                     "accountEnabled",
                     "department",
-                    "jobTitle"
+                    "jobTitle",
+                    "givenName",
+                    "surname",
+                    "mail",
+                    "mobilePhone",
+                    "businessPhones",
+                    "officeLocation",
+                    "employeeId",
+                    "employeeType",
+                    "companyName",
+                    "onPremisesSyncEnabled",
+                    "createdDateTime",
+                    "lastPasswordChangeDateTime"
                 };
 
                 await LogOperationAsync("Starting to fetch users...");
@@ -126,7 +139,23 @@ namespace MSCloudNinjaGraphAPI.Services
                         .GetAsync();
                 }
 
-                await LogOperationAsync($"Finished loading {users.Count} users from {pageCount} pages.");
+                await LogOperationAsync($"Finished loading {users.Count} users from {pageCount} pages with enhanced attributes.");
+                
+                // Log some statistics about the additional data retrieved
+                var usersWithJobTitle = users.Count(u => !string.IsNullOrEmpty(u.JobTitle));
+                var usersWithDepartment = users.Count(u => !string.IsNullOrEmpty(u.Department));
+                var usersWithOffice = users.Count(u => !string.IsNullOrEmpty(u.OfficeLocation));
+                var syncedUsers = users.Count(u => u.OnPremisesSyncEnabled == true);
+                
+                if (usersWithJobTitle > 0)
+                    await LogOperationAsync($"  Users with Job Title: {usersWithJobTitle}");
+                if (usersWithDepartment > 0)
+                    await LogOperationAsync($"  Users with Department: {usersWithDepartment}");
+                if (usersWithOffice > 0)
+                    await LogOperationAsync($"  Users with Office Location: {usersWithOffice}");
+                if (syncedUsers > 0)
+                    await LogOperationAsync($"  On-premises synced users: {syncedUsers}");
+                
                 return users;
             }
             catch (Exception ex)
@@ -205,11 +234,23 @@ namespace MSCloudNinjaGraphAPI.Services
                     .Select(g => $"{g.Key}: {g.Count()}")
                     .ToList();
 
-                await LogOperationAsync($"Found total of {groups.Count} assignable groups:");
+                await LogOperationAsync($"Found total of {groups.Count} assignable groups with enhanced metadata:");
                 foreach (var stat in stats)
                 {
                     await LogOperationAsync($"  {stat}");
                 }
+
+                // Log additional insights
+                var dynamicCount = groups.Count(g => !string.IsNullOrEmpty(g.MembershipRule));
+                var teamsEnabledCount = groups.Count(g => g.ResourceProvisioningOptions?.Contains("Team") == true);
+                var roleAssignableCount = groups.Count(g => g.IsAssignableToRole == true);
+                
+                if (dynamicCount > 0)
+                    await LogOperationAsync($"  Dynamic groups (auto-managed): {dynamicCount}");
+                if (teamsEnabledCount > 0)
+                    await LogOperationAsync($"  Teams-enabled groups: {teamsEnabledCount}");
+                if (roleAssignableCount > 0)
+                    await LogOperationAsync($"  Role-assignable groups: {roleAssignableCount}");
 
                 return groups;
             }
@@ -218,6 +259,39 @@ namespace MSCloudNinjaGraphAPI.Services
                 await LogExceptionAsync(ex);
                 throw;
             }
+        }
+
+        public async Task<List<Group>> GetAllGroupsAsync(bool includeTeamsEnabled = false, bool includeRoleAssignable = false, bool includeDynamic = true)
+        {
+            // Get all groups first
+            var allGroups = await GetAllGroupsAsync();
+            
+            // Apply additional filtering based on parameters
+            var filteredGroups = allGroups.AsEnumerable();
+            
+            if (!includeDynamic)
+            {
+                filteredGroups = filteredGroups.Where(g => string.IsNullOrEmpty(g.MembershipRule));
+                await LogOperationAsync("Filtered out dynamic groups");
+            }
+            
+            if (!includeTeamsEnabled)
+            {
+                filteredGroups = filteredGroups.Where(g => 
+                    g.ResourceProvisioningOptions?.Contains("Team") != true);
+                await LogOperationAsync("Filtered out Teams-enabled groups");
+            }
+            
+            if (!includeRoleAssignable)
+            {
+                filteredGroups = filteredGroups.Where(g => g.IsAssignableToRole != true);
+                await LogOperationAsync("Filtered out role-assignable groups");
+            }
+            
+            var result = filteredGroups.ToList();
+            await LogOperationAsync($"Applied advanced filtering, returning {result.Count} groups");
+            
+            return result;
         }
 
         public async Task<List<License>> GetAvailableLicensesAsync()
@@ -350,6 +424,18 @@ namespace MSCloudNinjaGraphAPI.Services
 
                 createdUser = await _graphClient.Users.PostAsync(user);
                 await LogOperationAsync($"User {request.UserPrincipalName} created successfully");
+
+                // Log additional attributes that were set
+                var additionalAttributes = new List<string>();
+                if (!string.IsNullOrEmpty(request.JobTitle)) additionalAttributes.Add($"Job Title: {request.JobTitle}");
+                if (!string.IsNullOrEmpty(request.Department)) additionalAttributes.Add($"Department: {request.Department}");
+                if (!string.IsNullOrEmpty(request.OfficeLocation)) additionalAttributes.Add($"Office: {request.OfficeLocation}");
+                if (!string.IsNullOrEmpty(request.BusinessPhone)) additionalAttributes.Add($"Business Phone: {request.BusinessPhone}");
+                
+                if (additionalAttributes.Any())
+                {
+                    await LogOperationAsync($"Enhanced user attributes set: {string.Join(", ", additionalAttributes)}");
+                }
 
                 // Handle custom attributes that require separate API calls
                 if (!string.IsNullOrEmpty(request.CostCenter))
